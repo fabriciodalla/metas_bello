@@ -94,6 +94,5 @@ Antes de encerrar uma mudanca relevante, confira:
 ## Pendencias Documentais Atuais
 
 - Incluir comandos reais depois da criacao do Django.
-- Documentar layout Excel depois de definido.
 - Documentar fonte ERP depois de confirmada.
 - Criar docs de seguranca, testes e operacao separados se o projeto crescer.

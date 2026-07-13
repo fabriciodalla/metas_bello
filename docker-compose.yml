@@ -1,33 +1,12 @@
 services:
-  web:
-    build:
-      context: .
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
-    environment:
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-django-insecure-changeme}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
-      POSTGRES_DB: ${POSTGRES_DB:-metas_bello}
-      POSTGRES_USER: ${POSTGRES_USER:-metas_bello}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-      POSTGRES_HOST: ${POSTGRES_HOST:-db}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-    depends_on:
-      db:
-        condition: service_healthy
-
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-metas_bello}
-      POSTGRES_USER: ${POSTGRES_USER:-metas_bello}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_USER: ${POSTGRES_USER:-metas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metas}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -35,6 +14,43 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    volumes:
+      - ./api:/src/api
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-metas}:${POSTGRES_PASSWORD:-metas}@db:5432/${POSTGRES_DB:-metas_bello}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ERP_DB_HOST: ${ERP_DB_HOST:-}
+      ERP_DB_PORT: ${ERP_DB_PORT:-5432}
+      ERP_DB_NAME: ${ERP_DB_NAME:-}
+      ERP_DB_SCHEMA: ${ERP_DB_SCHEMA:-stage}
+      ERP_DB_USER: ${ERP_DB_USER:-}
+      ERP_DB_PASSWORD: ${ERP_DB_PASSWORD:-}
+      ERP_DB_SSLMODE: ${ERP_DB_SSLMODE:-prefer}
+      ERP_DB_SALES_HISTORY_RELATION: ${ERP_DB_SALES_HISTORY_RELATION:-cr8be_vendas_bello_2}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${API_HOST_PORT:-8000}
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

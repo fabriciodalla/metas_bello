@@ -14,10 +14,12 @@ Criar um app web interno para cadastrar metas globais por grupo, sugerir distrib
 
 - Gerente: cria metas globais por grupo e distribui para coordenadores regionais.
 - Coordenador Regional: recebe metas por grupo, distribui para coordenadores locais e quebra metas de grupos em subgrupos para supervisores.
-- Coordenador Local: papel confirmado como parte da hierarquia, mas suas responsabilidades detalhadas ainda precisam ser refinadas.
+- Coordenador Local: etapa obrigatoria entre Coordenador Regional e Supervisor.
 - Supervisor: recebe metas por subgrupo e distribui para vendedores.
 - Vendedor: recebe meta final em kg.
 - Administrador do sistema: mantem usuarios, permissoes, cadastros, importacoes e parametros.
+
+Cada usuario operacional deve ter um perfil no sistema e, quando for um papel comercial, um escopo correspondente na hierarquia ativa.
 
 ## Valor De Negocio
 
@@ -35,9 +37,9 @@ Criar um app web interno para cadastrar metas globais por grupo, sugerir distrib
 4. Sistema sugere distribuicao inicial.
 5. Gerente ajusta se necessario e distribui grupos para coordenadores regionais.
 6. Coordenadores regionais distribuem metas de grupo para coordenadores locais, seguindo a hierarquia.
-7. Coordenadores regionais quebram metas de grupos em subgrupos.
-8. Coordenadores regionais distribuem valores de subgrupos para supervisores.
-9. Supervisores distribuem metas de subgrupos para vendedores.
+7. Coordenadores locais recebem a meta do regional e distribuem para supervisores.
+8. Supervisores distribuem metas para vendedores.
+9. Cada etapa so pode enviar para o proximo nivel direto permitido.
 10. Em cada envio, o sistema valida se a soma distribuida fecha 100% da meta recebida.
 11. Se fechar 100%, o fluxo pode seguir para o proximo nivel.
 12. Se nao fechar 100%, o envio fica bloqueado ate correcao.
@@ -48,6 +50,7 @@ Criar um app web interno para cadastrar metas globais por grupo, sugerir distrib
 - Cadastro de usuarios e perfis.
 - Cadastro/importacao de hierarquia comercial por Excel.
 - Cadastro/importacao de grupos e subgrupos.
+- Manutencao administrativa de hierarquia, grupos e subgrupos para inclusoes, movimentacoes e inativacoes no dia a dia.
 - Criacao de ciclo mensal.
 - Criacao de metas globais por grupo em kg.
 - Sugestao automatica baseada em historico do ERP/banco.
@@ -72,11 +75,32 @@ Criar um app web interno para cadastrar metas globais por grupo, sugerir distrib
 - A meta oficial do MVP e mensal.
 - A unidade oficial do MVP e kg.
 - Toda meta distribuida deve somar exatamente 100% da meta recebida.
+- Quantidades operacionais em kg nao usam casas decimais.
 - O envio para o proximo nivel fica bloqueado se houver sobra ou falta.
+- A matriz obrigatoria de distribuicao e Gerente -> Coordenador Regional -> Coordenador Local -> Supervisor -> Vendedor.
 - A sugestao automatica nao e obrigatoria: o gestor pode ajustar antes de enviar.
 - A hierarquia e os cadastros podem ser importados por Excel e ajustados manualmente.
+- Importacao Excel deve ser usada para carga inicial ou lote; alteracoes rotineiras devem ser feitas no sistema pelo administrador.
+- Remocao operacional de hierarquia, grupo ou subgrupo deve ser inativacao, preservando historico.
+- Pessoas inativas devem permanecer no banco para historico, mas nao devem entrar em novas distribuicoes operacionais.
+- Codigos internos de origem devem ser mantidos no banco, mas nao precisam ser exibidos como informacao principal ao administrador.
+- Cadastros manuais devem gerar automaticamente o proximo codigo interno quando o administrador nao informar codigo.
+- Mudancas de hierarquia devem ter uma operacao propria para niveis abaixo da gerencia, preservando vigencia e historico.
 - O historico do ERP/banco deve ser usado apenas para leitura.
+- O historico de vendas do ERP deve seguir o contrato mensal por vendedor e subgrupo: mes de emissao, codigo auxiliar de supervisor, nome do vendedor, nome do subgrupo e total em kg.
+- A sugestao automatica deve localizar o destino pela hierarquia vigente do vendedor; o codigo de supervisor vindo do ERP e apenas dado auxiliar do historico.
+- O nome do subgrupo vindo do ERP deve bater exatamente com o cadastro interno de subgrupos.
+- Linhas do historico sem vendedor/supervisor devem ser agrupadas como volume sem vendedor do gerente, para manter o total completo da unidade, sem criar destino automatico em niveis inferiores.
 - O sistema deve registrar quem criou, alterou, distribuiu e liberou cada etapa.
+- Perfis comerciais devem operar somente dentro do seu escopo hierarquico ativo.
+
+## Layouts De Importacao Confirmados
+
+Os layouts oficiais de importacao Excel de subgrupos e hierarquia foram definidos a partir dos arquivos `SUBGRUPOS_BELLO.xlsx` e `hierarquia_bello.xlsx`.
+
+Detalhes obrigatorios:
+
+- `docs/IMPORT_LAYOUTS.md`
 
 ## Hipoteses
 
@@ -88,7 +112,5 @@ Criar um app web interno para cadastrar metas globais por grupo, sugerir distrib
 
 - Confirmar a fonte exata do historico de vendas no ERP/banco.
 - Definir se a sugestao usa 3, 6, 12 meses ou outro periodo de historico.
-- Definir regra de arredondamento em kg.
-- Definir responsabilidade detalhada do coordenador local.
 - Definir se vendedores podem apenas consultar ou tambem confirmar recebimento da meta.
 - Definir telas prioritarias do MVP.

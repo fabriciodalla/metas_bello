@@ -14,6 +14,7 @@ A execucao do projeto deve acontecer em containers Docker Compose, com um servic
 - PostgreSQL do sistema: usuarios, hierarquia, metas, distribuicoes, status e logs.
 - Adaptador ERP read-only: consultas ao historico de vendas em kg.
 - Importador Excel: carga inicial e manutencao de cadastros/hierarquia.
+- Admin de cadastros: manutencao diaria de hierarquia, grupos, subgrupos e movimentacoes.
 - Servico de sugestao: calcula distribuicao inicial a partir do historico.
 - Servico de validacao: garante fechamento 100% antes de liberar envio.
 - Auditoria interna: registra eventos relevantes de criacao, alteracao e liberacao.
@@ -30,7 +31,52 @@ A execucao do projeto deve acontecer em containers Docker Compose, com um servic
 - `erp_readonly`: adaptadores de consulta ao banco/ERP.
 - `audit`: eventos e historico operacional.
 
-A base inicial dos apps ja existe. Neste momento, eles ainda nao possuem modelos Django de dominio. O primeiro servico implementado e `allocations.services.validation.evaluate_distribution_closure`, que valida o fechamento 100% de distribuicoes.
+A base inicial dos apps ja existe. Os primeiros modelos Django de dominio foram criados em `catalog`, `hierarchy`, `goals` e `allocations`.
+
+Modelos de `catalog`:
+
+- `ProductGroup`: grupo comercial.
+- `ProductSubgroup`: subgrupo vinculado a um grupo por chave estrangeira.
+- `ProductGroupMovement`: historico de inclusao, inativacao, reativacao e remocao logica de grupos.
+- `ProductSubgroupMovement`: historico de inclusao, movimentacao entre grupos, inativacao, reativacao e remocao logica de subgrupos.
+
+Modelos de `accounts`:
+
+- `UserProfile`: perfil operacional ligado 1:1 ao usuario Django, com escopo comercial opcional para gerente, coordenador regional, coordenador local, supervisor ou vendedor.
+
+Modelos de `hierarchy`:
+
+- `SalesManager`: gerente.
+- `RegionalCoordinator`: coordenador regional.
+- `LocalCoordinator`: coordenador local.
+- `Supervisor`: supervisor.
+- `Seller`: vendedor.
+- `HierarchyAssignment`: vinculo historico com caminho completo gerente, regional, local, supervisor e vendedor, com vigencia.
+- `HierarchyMovement`: operacao administrativa para mover coordenador regional, coordenador local, supervisor ou vendedor para nova hierarquia.
+
+Modelos de `goals`:
+
+- `GoalCycle`: ciclo mensal unico por mes/ano.
+- `GlobalGoal`: meta global em kg por grupo dentro de um ciclo.
+
+Modelos de `allocations`:
+
+- `AllocationBatch`: lote de distribuicao com meta recebida, origem, grupo/subgrupo e status.
+- `AllocationLine`: destino e quantidade em kg distribuida dentro de um lote.
+- `AllocationBatchEvent`: trilha de tentativas de envio, bloqueios, envios e cancelamentos.
+
+O primeiro servico implementado e `allocations.services.validation.evaluate_distribution_closure`, que valida o fechamento 100% de distribuicoes.
+O servico `allocations.services.batches.evaluate_allocation_batch_closure` aplica esse contrato a um lote de distribuicao.
+O servico `allocations.services.batches.attempt_send_allocation_batch` registra a tentativa e muda o status do lote para `ENVIADA` ou `BLOQUEADA`.
+O servico `allocations.services.hierarchy_scope` valida se a origem possui vinculo vigente em `HierarchyAssignment` e se cada destino esta ativo, dentro do escopo hierarquico vigente e no proximo nivel direto permitido.
+
+Telas server-rendered implementadas:
+
+- Painel inicial em `/`.
+- Ciclos e metas globais em `/ciclos/`.
+- Distribuicoes em `/distribuicoes/`.
+- Login proprio em `/login/`.
+- Admin Django em `/admin/`.
 
 ## Fluxo Tecnico Principal
 
@@ -41,10 +87,11 @@ A base inicial dos apps ja existe. Neste momento, eles ainda nao possuem modelos
 5. Servico de sugestao calcula participacoes historicas.
 6. Tela apresenta distribuicao sugerida.
 7. Gestor ajusta manualmente se necessario.
-8. Servico de validacao soma os valores distribuidos.
-9. Se a soma fechar 100%, o sistema libera o envio.
-10. Se nao fechar, o sistema bloqueia e mostra a diferenca.
-11. Evento e status sao registrados no PostgreSQL do sistema.
+8. Servico de escopo valida se os destinos pertencem a cadeia hierarquica da origem e respeitam a matriz Gerente -> Regional -> Local -> Supervisor -> Vendedor.
+9. Servico de validacao soma os valores distribuidos.
+10. Se a soma fechar 100%, o sistema libera o envio.
+11. Se nao fechar, o sistema bloqueia e mostra a diferenca.
+12. Evento e status sao registrados no PostgreSQL do sistema.
 
 ## Dados
 
@@ -67,11 +114,27 @@ Uso previsto:
 - Apoiar calculo de participacao historica por nivel da hierarquia.
 - Fornecer dados para sugestao automatica.
 
+Contrato esperado da consulta de historico:
+
+- `cr8be_mes_emissao`: mes de emissao no formato `YYYY-MM`.
+- `cr8be_nk_supervisor1`: codigo auxiliar de supervisor/carteira vindo do ERP.
+- `cr8be_nome_vendedor1`: nome do vendedor usado para localizar a hierarquia vigente.
+- `cr8be_ds_subgrupo`: nome do subgrupo, igual ao cadastro interno.
+- `cr8be_total_ps_atendido`: total vendido em kg.
+
+Regras do consumo:
+
+- A query pode usar tabela ou view real do ERP, mas deve devolver as colunas acima.
+- O mapeamento hierarquico da sugestao usa sempre o vendedor em `HierarchyAssignment`.
+- O subgrupo do historico e associado ao grupo pelo cadastro interno `ProductSubgroup`.
+- Registros sem vendedor/supervisor entram em um bucket de volume sem vendedor do gerente, preservando o total da unidade sem atribuir automaticamente esse volume a regional, local, supervisor ou vendedor.
+- Testes automatizados devem usar fake/mock desse contrato, nunca o ERP real.
+
 Pendencias:
 
 - Nome do banco/servidor.
 - Tipo do banco do ERP.
-- Tabelas, views ou consultas autorizadas.
+- Tabelas, views ou consultas autorizadas em producao.
 - Regras de filtro por periodo, grupo, subgrupo, equipe e vendedor.
 - Politica de timeout e tratamento de indisponibilidade.
 
@@ -81,11 +144,38 @@ Uso previsto:
 
 - Importar hierarquia.
 - Importar grupos e subgrupos.
-- Ajustar cadastros iniciais.
+- Apoiar cargas iniciais ou atualizacoes grandes em lote.
+
+Comando implementado:
+
+```powershell
+docker compose run --rm -v "C:\Users\FABRICIO.DALLA\Downloads:/input:ro" web python manage.py import_reference_data --subgroups /input/SUBGRUPOS_BELLO.xlsx --hierarchy /input/hierarquia_bello.xlsx --effective-on 2026-06-11 --skip-name-conflicts
+```
+
+Dependencia:
+
+- `openpyxl` para leitura de arquivos `.xlsx`.
+
+Ajustes rotineiros:
+
+- Devem ser feitos pelo Django Admin ou por telas administrativas futuras.
+- Nao devem exigir nova importacao completa quando houver novo vendedor, supervisor, coordenador, grupo ou subgrupo.
+- Remocoes operacionais devem inativar registros e preservar historico.
+- Pessoas inativas permanecem no banco para historico, mas ficam fora das novas distribuicoes operacionais.
+- Mudancas de hierarquia devem ser feitas por `HierarchyMovement`, que encerra vinculos vigentes e cria novos vinculos com data de vigencia.
+
+Codigos internos:
+
+- `source_id` preserva os codigos de origem e permite novas sequencias internas.
+- No Admin, a informacao principal exibida deve ser o nome.
+- Ao cadastrar manualmente sem codigo, o sistema gera o proximo codigo pelo prefixo do modelo.
+
+Layout oficial:
+
+- `docs/IMPORT_LAYOUTS.md`
 
 Pendencias:
 
-- Layout oficial das planilhas.
 - Validacoes obrigatorias.
 - Tratamento de duplicidades.
 - Politica de erro: rejeitar arquivo inteiro ou importar linhas validas.
@@ -96,6 +186,7 @@ Decisao atual:
 
 - Login proprio do Django no MVP.
 - Evolucao futura para login Microsoft/empresa.
+- Usuarios usam `auth.User` do Django com `accounts.UserProfile` para perfil e escopo comercial.
 
 Perfis iniciais:
 
@@ -107,6 +198,14 @@ Perfis iniciais:
 - Vendedor.
 
 Permissoes devem respeitar hierarquia. Um usuario deve visualizar e alterar somente os ciclos, metas e distribuicoes ligados ao seu papel e escopo.
+O servico `accounts.services.scopes.active_hierarchy_assignments_for_user` retorna os vinculos vigentes e ativos que pertencem ao escopo do usuario.
+
+## Regras Operacionais De Distribuicao
+
+- Coordenador Local e etapa obrigatoria entre Coordenador Regional e Supervisor.
+- A matriz de transicao direta permitida e Gerente -> Coordenador Regional -> Coordenador Local -> Supervisor -> Vendedor.
+- Quantidades operacionais em kg usam `DecimalField(max_digits=14, decimal_places=0)`.
+- Calculos e sugestoes automaticas devem arredondar kg para nenhuma casa decimal antes de gravar metas ou distribuicoes.
 
 ## Seguranca
 

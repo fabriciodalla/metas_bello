@@ -1,75 +1,67 @@
 # Contexto Para IA
 
-## Resumo
+Indice de referencia. Consulte cada doc apenas quando a tarefa tocar essa area.
 
-METAS_BELLO e um projeto para construir um app web interno em Django que controla a criacao, distribuicao e liberacao hierarquica de metas comerciais mensais em kg.
+| Area | Arquivo |
+| --- | --- |
+| Produto, escopo, usuarios, fluxo | `docs/PROJECT.md` |
+| Arquitetura, componentes, apps, integracoes | `docs/ARCHITECTURE.md` |
+| Modelos Django, entidades, invariantes | `docs/DATA_MODEL.md` |
+| Decisoes aprovadas vs hipoteses | `docs/DECISION_LOG.md` |
+| Layouts Excel de importacao | `docs/IMPORT_LAYOUTS.md` |
+| Testes, contratos, comandos | `docs/TESTING.md` |
+| Regras para o agente | `AGENTS.md` |
 
-O sistema deve evitar divergencias entre meta recebida e meta distribuida. A regra central e: uma distribuicao so pode seguir para o proximo nivel quando a soma dos destinos fechar 100% da meta recebida.
+## Estado Atual Resumido
 
-## Mapa Do Repositorio
+- Stack: FastAPI + Next.js + PostgreSQL proprio + ERP somente leitura.
+- Backend: `api/` com routers (auth, hierarchy, goals, erp, calendar).
+- Frontend: `frontend/` Next.js 15 com Tailwind.
+- Invariante principal: distribuicao bloqueada se soma != 100% da meta recebida.
+- Coordenador Local e etapa obrigatoria entre Regional e Supervisor.
+- Matriz direta de distribuicao: Gerente -> Regional -> Local -> Supervisor -> Vendedor.
+- Quantidades operacionais em kg usam 0 casas decimais.
+- Carga inicial: 4 grupos, 152 subgrupos, 1 gerente, 2 regionais, 9 locais, 26 supervisores, 93 vendedores.
 
-Estado atual:
+## Regra de Periodo do Calculo de Metas
 
-- `README.md`: entrada do projeto.
-- `AGENTS.md`: regras para Codex.
-- `Dockerfile` e `docker-compose.yml`: ambiente containerizado com Django e PostgreSQL.
-- `manage.py` e `config/`: base Django inicial.
-- Apps Django iniciais: `accounts`, `hierarchy`, `catalog`, `goals`, `allocations`, `approvals`, `imports`, `erp_readonly` e `audit`.
-- `tests/`: suite inicial em `unittest` com guardrails e contratos.
-- `docs/PROJECT.md`: produto, escopo e regras.
-- `docs/ARCHITECTURE.md`: arquitetura proposta.
-- `docs/DATA_MODEL.md`: entidades conceituais.
-- `docs/DECISION_LOG.md`: decisoes registradas.
-- `docs/CODEX_WORKFLOWS.md`: fluxos de trabalho sugeridos.
-- `docs/TESTING.md`: estrategia e comando de testes.
-- `docs/DOCS_MAINTENANCE.md`: regra de manutencao dos docs.
+**REGRA FIXA — nao alterar sem aprovacao:**
 
-O primeiro servico de dominio implementado e `allocations.services.validation.evaluate_distribution_closure`.
+- O ciclo e sempre para o **mes seguinte** ao atual.
+- O historico usa os **3 meses FECHADOS** antes do mes atual (pula o mes corrente).
+- Formula: `ciclo = mes_atual + 1`, `historico = mes_atual - 1, - 2, - 3`.
 
-## Fontes Da Verdade
+Exemplo (estamos em junho/2026):
+- Ciclo: **julho/2026**
+- Historico: **maio, abril, marco** (junho ainda nao fechou, e pulado)
+- Meta diaria = soma_3_meses / dias_uteis(mar+abr+mai)
+- Meta individual = meta_diaria × dias_uteis(julho)
 
-- Regras de negocio: `docs/PROJECT.md`.
-- Arquitetura: `docs/ARCHITECTURE.md`.
-- Dados: `docs/DATA_MODEL.md`.
-- Decisoes: `docs/DECISION_LOG.md`.
-- Testes: `docs/TESTING.md` e `tests/`.
-- Regras para agentes: `AGENTS.md`.
+Implementacao: `previous_months(cycle.year, cycle.month, 3, skip=1)` em `api/services/working_days.py`.
 
-## Invariantes
+## Regra de Dias Uteis
 
-- App web interno.
-- Django como tecnologia principal.
-- PostgreSQL como banco do sistema.
-- ERP/banco somente leitura para historico.
-- Metas mensais.
-- Metas em kg.
-- Distribuicao hibrida: sugestao automatica + ajuste manual.
-- Bloqueio quando a soma distribuida nao fecha 100%.
-- Login proprio no MVP.
-- Login Microsoft/empresa como evolucao futura.
-- Desenvolvimento e execucao via Docker Compose.
+- Dias uteis = dias de semana (seg-sex) - feriados em dia util.
+- Tabela `holidays` armazena feriados.
+- Tabela `working_days_config` armazena overrides do admin.
+- Prioridade: override confirmado > calculo automatico (weekdays - feriados).
+- Admin pode ajustar dias uteis pela tela "Dias Uteis" ou pelo input no Painel Gerencial.
 
-## Decisoes Atuais
+## Menu por Role
 
-As decisoes aprovadas estao em `docs/DECISION_LOG.md`.
+| Role | Comercial | Administracao |
+| --- | --- | --- |
+| GERENTE | Dashboard, Painel Gerencial, Ciclos, Distribuir Metas, Metas Vendedores | — |
+| ADMINISTRADOR | Tudo acima | Hierarquia, Produtos, Usuarios, Feristas, Dias Uteis |
+| COORDENADOR_REGIONAL | Dashboard, Ciclos, Distribuir Metas, Metas Vendedores | — |
+| COORDENADOR_LOCAL | Dashboard, Ciclos, Distribuir Metas, Metas Vendedores | — |
+| SUPERVISOR | Dashboard, Distribuir Metas, Metas Vendedores | — |
+| VENDEDOR | Dashboard, Metas Vendedores | — |
 
-Ao alterar escopo, arquitetura, banco, integracao, autenticacao, regra de fechamento ou hierarquia, atualize o log de decisoes.
+## Fluxo de Sync ERP (3 passos)
 
-## Pendencias Conhecidas
+1. `POST /erp/clients/sync/{cycle_id}` — carteira de clientes
+2. `POST /erp/accumulated/sync/{cycle_id}?start_date=YYYY-MM-01` — historico de vendas
+3. `POST /erp/base-distribution/build/{cycle_id}` — cruzamento carteira × vendas
 
-- Confirmar fonte do historico no ERP/banco.
-- Definir periodo de historico usado na sugestao.
-- Definir regra de arredondamento.
-- Definir papel detalhado do coordenador local.
-- Definir telas prioritarias.
-- Definir ambiente de deploy.
-- Definir layout das importacoes Excel.
-
-## Cuidados Para Futuras Implementacoes
-
-- Nao gravar no ERP.
-- Nao versionar credenciais.
-- Nao criar regra que permita envio com sobra ou falta.
-- Nao esconder ajustes manuais; eles precisam ser rastreaveis.
-- Nao misturar dados importados de Excel com dados oficiais do ERP sem origem clara.
-- Nao rodar comandos de app Django diretamente no host; usar `docker compose run --rm web ...`.
+O `start_date` deve cobrir os 3 meses historicos. Ex: ciclo julho → start_date = 2026-03-01.

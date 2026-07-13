@@ -1,76 +1,57 @@
 # AGENTS.md
 
-## Objetivo Do Projeto
+## Projeto
 
-METAS_BELLO e um sistema interno Django para criacao, distribuicao e aprovacao hierarquica de metas comerciais mensais em kg.
+App web interno com FastAPI (backend) e Next.js (frontend) para criar, distribuir e aprovar metas comerciais mensais em kg. Fluxo: Gerente → Regional → Local → Supervisor → Vendedor. Banco proprio PostgreSQL; ERP somente leitura para historico.
 
-O fluxo principal parte do gerente, passa por coordenadores regionais, coordenadores locais, supervisores e chega aos vendedores. O sistema deve preservar rastreabilidade, fechar distribuicoes em 100% e manter o banco do sistema separado do banco/ERP lido em modo somente leitura.
+## Stack
 
-## Regras Para Codex
+- Backend: FastAPI + SQLAlchemy async (`api/`)
+- Frontend: Next.js 15 + React 19 + TypeScript + Tailwind (`frontend/`)
+- Banco: PostgreSQL 16
+- Orquestracao: Docker Compose com servicos `db`, `api`, `frontend`
 
-- Leia `README.md`, `docs/PROJECT.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md` e `docs/DECISION_LOG.md` antes de alterar regras de negocio.
-- Nao trate hipotese como decisao aprovada. Se algo estiver em aberto, marque como pendencia ou pergunte ao usuario.
-- Nao implemente integracao de escrita no ERP. A decisao atual permite somente leitura.
-- Nao altere a regra de fechamento 100% sem confirmacao explicita do usuario.
-- Nao coloque credenciais, tokens, strings de conexao reais ou dados sensiveis em arquivos versionados.
-- Preserve a separacao entre banco PostgreSQL do sistema e banco/ERP somente leitura.
-- Ao criar codigo Django, prefira monolito modular com apps por dominio.
-- Execute comandos do projeto Django via Docker Compose, nao diretamente no host.
+## Invariantes — nunca quebre sem confirmacao explicita
 
-## Arquivos Importantes
+- Distribuicao bloqueada se soma dos destinos != 100% da meta recebida.
+- Nunca gravar no ERP.
+- Nunca versionar credenciais ou segredos.
+- Remocao operacional = inativacao; sem exclusao fisica.
+- Nodes inativos ficam no banco; distribuicoes usam so nodes ativos.
+- Hierarquia representada por `HierarchyNode` com `parent_id` — nao criar tabelas separadas por nivel.
+- Motores de calculo devem implementar o protocolo `CalculationEngine`.
+- **Periodo historico**: ciclo = mes_atual + 1. Historico = 3 meses fechados antes do atual (pula o mes corrente). Implementado com `previous_months(..., skip=1)`. Nao alterar sem aprovacao.
 
-- `README.md`: visao geral e ponto de entrada.
-- `docs/PROJECT.md`: escopo, usuarios, regras e pendencias de produto.
-- `docs/ARCHITECTURE.md`: desenho tecnico, componentes e integracoes.
-- `docs/DATA_MODEL.md`: entidades conceituais e invariantes de dados.
-- `docs/DECISION_LOG.md`: decisoes aprovadas, propostas e hipoteses.
-- `docs/AI_CONTEXT.md`: memoria operacional para IA.
-- `docs/CODEX_WORKFLOWS.md`: passos sugeridos para evoluir o projeto.
+## Areas sensiveis
 
-## Comandos Seguros
+- Integracao ERP, credenciais, migrations de banco.
+- Regras de fechamento 100% (`api/services/validation.py`).
+- Validacao de escopo hierarquico (`api/services/scope.py`).
+- Motores de calculo (`api/services/engines/`).
 
-Suite atual em container:
+## Comandos seguros
 
-```powershell
-docker compose run --rm web python -m unittest discover -s tests -v
+```bash
+docker compose up --build
+docker compose exec api python -m api.seed
+docker compose logs api
+docker compose logs frontend
 ```
 
-Comandos Django em container:
+## Consulte sob demanda
 
-```powershell
-docker compose build
-docker compose up -d db
-docker compose run --rm web python manage.py migrate
-docker compose run --rm web python manage.py check
-docker compose up web
-```
+| Area | Arquivo |
+|------|---------|
+| Regras de negocio e escopo | `docs/PROJECT.md` |
+| Arquitetura e componentes | `docs/ARCHITECTURE.md` |
+| Modelos e invariantes de dados | `docs/DATA_MODEL.md` |
+| Decisoes aprovadas | `docs/DECISION_LOG.md` |
+| Layouts Excel de importacao | `docs/IMPORT_LAYOUTS.md` |
 
-Antes de executar comandos que baixam dependencias, criam banco, alteram dados ou acessam rede, verifique as regras de permissao da sessao.
+## Quando atualizar docs
 
-## Areas Sensiveis
-
-- Integracao com ERP/banco corporativo.
-- Credenciais e configuracoes de ambiente.
-- Migracoes de banco.
-- Regras de aprovacao e fechamento 100%.
-- Importacao Excel de hierarquia e cadastros.
-- Dados de vendedores, equipes, historico comercial e metas.
-
-## Padroes De Edicao
-
-- Atualize `docs/DECISION_LOG.md` quando uma decisao de produto, arquitetura, dados, seguranca ou operacao mudar.
-- Atualize `docs/DATA_MODEL.md` quando criar ou alterar modelos Django relevantes.
-- Atualize `docs/ARCHITECTURE.md` quando alterar componentes, integracoes ou fluxo tecnico.
-- Atualize `README.md` quando houver comandos reais de setup, teste ou execucao.
-- Mantenha documentacao em portugues simples e objetiva.
-
-## Quando Atualizar Documentacao
-
-Atualize os docs sempre que:
-
-- uma regra de negocio for criada, alterada ou removida;
-- um novo app Django for adicionado;
-- houver mudanca no fluxo de distribuicao/aprovacao;
-- surgir nova dependencia externa;
-- uma pendencia for decidida;
-- o modo de rodar, testar ou configurar o projeto mudar.
+- Regra de negocio criada/alterada → `docs/PROJECT.md`
+- Model SQLAlchemy criado/alterado → `docs/DATA_MODEL.md` + `docs/ARCHITECTURE.md`
+- Decisao tomada → `docs/DECISION_LOG.md`
+- Comando novo → `README.md`
+- Nova regra permanente → `AGENTS.md`
