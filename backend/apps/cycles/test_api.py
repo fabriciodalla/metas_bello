@@ -71,3 +71,38 @@ class CycleApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status"], Cycle.Status.FECHADO)
+
+    def test_distribution_overview_rejects_non_admin(self):
+        response = self.client.get(reverse("cycle-distribution-overview", kwargs={"pk": self.cycle.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_distribution_overview_lists_allocation_owners_for_admin(self):
+        admin = User.objects.create_user(username="admin", password="x", is_admin=True)
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse("cycle-distribution-overview", kwargs={"pk": self.cycle.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        entry = response.data[0]
+        self.assertEqual(entry["owner_node_nome"], "Gerente")
+        self.assertEqual(entry["owner_node_usernames"], ["gerente"])
+        self.assertFalse(entry["distributed"])
+
+    def test_export_rejects_non_admin(self):
+        response = self.client.get(reverse("cycle-export", kwargs={"pk": self.cycle.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_export_returns_csv_with_all_allocations(self):
+        admin = User.objects.create_user(username="admin", password="x", is_admin=True)
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse("cycle-export", kwargs={"pk": self.cycle.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/csv")
+        body = response.content.decode("utf-8")
+        self.assertIn("Gerente", body)
+        self.assertIn(str(self.allocation.quantity_kg), body)

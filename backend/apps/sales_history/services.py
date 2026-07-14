@@ -15,6 +15,17 @@ def _fetch_as_dicts(alias: str, sql: str, params: list | None = None) -> list[di
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
+def first_day_n_months_ago(today: datetime.date, months_back: int) -> datetime.date:
+    """Compartilhado entre o comando `sync_sales_history` e o endpoint de sync do Administrador,
+    pra não duplicar a aritmética de janela de meses (H2, 12 meses por padrão)."""
+    year = today.year
+    month = today.month - months_back
+    while month <= 0:
+        month += 12
+        year -= 1
+    return datetime.date(year, month, 1)
+
+
 class SalesHistorySyncService:
     """Roda as duas consultas no Postgres externo (somente leitura) e grava o resultado nas
     tabelas locais da aplicação. Nenhuma fórmula de negócio roda aqui — só espelha os dados.

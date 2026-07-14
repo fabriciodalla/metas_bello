@@ -2,16 +2,11 @@ from datetime import date
 
 from django.core.management.base import BaseCommand
 
-from apps.sales_history.services import DistributionBaselineService, SalesHistorySyncService
-
-
-def first_day_n_months_ago(today: date, months_back: int) -> date:
-    year = today.year
-    month = today.month - months_back
-    while month <= 0:
-        month += 12
-        year -= 1
-    return date(year, month, 1)
+from apps.sales_history.services import (
+    DistributionBaselineService,
+    SalesHistorySyncService,
+    first_day_n_months_ago,
+)
 
 
 class Command(BaseCommand):
