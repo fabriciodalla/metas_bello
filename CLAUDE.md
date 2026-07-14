@@ -73,6 +73,15 @@ concluída — models sem migração correspondente quebram `manage.py check` e 
 Todos os 4 devem passar limpos (sem erros, sem "would reformat") antes de reportar a tarefa como
 concluída.
 
+## Antes de considerar uma mudança de frontend pronta
+
+1. `docker compose exec frontend npm run build` (`tsc -b && vite build`) — typecheck e build de
+   produção devem passar sem erro. Ainda não há lint/formatter/testes configurados no `frontend/`;
+   até existirem, esse é o único gate automatizado.
+2. Testar o fluxo manualmente no navegador (`http://localhost:5173`, stack já no ar via
+   `docker compose up -d`) — cobrindo o caminho feliz e casos de borda da tela alterada. Typecheck
+   não substitui isso.
+
 ## Convenções
 
 - Formatação: `black` (line-length 110). Lint: `ruff` (regras `E`, `F`, `I`; migrations excluídas
