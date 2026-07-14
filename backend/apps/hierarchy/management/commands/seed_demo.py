@@ -45,11 +45,15 @@ class Command(BaseCommand):
             level=HierarchyNode.Level.VENDEDOR, nome="Vendedor 2", parent=supervisor_node
         )
 
+        # Administrador (H3/Decisão 4): CRUD via Django Admin, sem posição na cascata de metas —
+        # papel separado do Gerente, mesmo que a mesma pessoa possa ocupar os dois na vida real.
         admin_user = User.objects.create_superuser(username="admin", password="admin12345", email="")
         admin_user.is_admin = True
         admin_user.save()
-        admin_user.hierarchy_nodes.add(gerente_node)
 
+        gerente_user = User.objects.create_user(
+            username="gerente", password="senha12345", hierarchy_node=gerente_node
+        )
         User.objects.create_user(username="regional", password="senha12345", hierarchy_node=regional_node)
         User.objects.create_user(username="local", password="senha12345", hierarchy_node=local_node)
         User.objects.create_user(username="supervisor", password="senha12345", hierarchy_node=supervisor_node)
@@ -60,9 +64,12 @@ class Command(BaseCommand):
             granularity=GoalAllocation.Granularity.GROUP,
             group=group,
             quantity_kg=1000,
-            criado_por=admin_user,
+            criado_por=gerente_user,
         )
 
         self.stdout.write(
-            self.style.SUCCESS("Seed criado. Login: admin / admin12345 (demais usuários: senha12345).")
+            self.style.SUCCESS(
+                "Seed criado. Login: admin / admin12345 (Administrador, sem posição na hierarquia); "
+                "gerente / senha12345 (demais usuários também: senha12345)."
+            )
         )
