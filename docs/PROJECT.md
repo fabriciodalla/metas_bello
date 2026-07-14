@@ -1,116 +1,65 @@
-# Projeto
+# Metas Bello — Distribuição de Metas Comerciais
 
-## Problema
+> App web interno da Bello Alimentos para distribuir metas comerciais de vendas (em KG inteiro),
+> em cascata, do Gerente até cada Vendedor — com fechamento exato e auditável em cada repasse.
 
-A criacao e distribuicao de metas comerciais por hierarquia tende a gerar retrabalho, falta de rastreabilidade, risco de divergencia nos totais e dificuldade para validar se os valores distribuidos fecham exatamente a meta recebida.
+## Problema que resolve
+Hoje a Bello quebra a meta comercial global até o vendedor de forma manual/dispersa, o que gera
+risco de fechamento incorreto (sobra/falta entre níveis), falta de base histórica para sugerir
+números realistas e falta de isolamento de escopo entre ramos da hierarquia. O objetivo é uma
+distribuição **auditável, exata (100% distribuída até a ponta) e informada por histórico**.
 
-O sistema busca centralizar o ciclo mensal de metas em kg, mantendo cada etapa controlada pela hierarquia comercial.
+## Como funciona (visão de 30 segundos)
+Uma meta global em KG por grupo de produto desce por 5 níveis fixos
+(**Gerente → Coordenador Regional → Coordenador Local → Supervisor → Vendedor**), com a
+granularidade de produto mudando ao longo do caminho (grupo → grupo → subgrupo → subgrupo →
+individual). Cada repasse é uma alocação de meta encadeada ao pai. Uma **invariante de fechamento
+exato** (validação transacional independente da fórmula) garante que a soma distribuída bate com o
+recebido em cada nível, e uma **checagem de completude** garante que 100% chega ao Vendedor antes de
+o ciclo mensal poder fechar. As fórmulas de cálculo já têm decisão aprovada e ficam atrás de
+**estratégias plugáveis** (podem ser revistas sem retrabalho estrutural). O histórico de vendas vem
+de um Postgres externo read-only isolado por uma camada anticorrupção. Detalhe completo em
+[architecture.md](./architecture.md).
 
-## Objetivo
+## Stack (resumo)
+- **Backend / núcleo:** Python — Django 5.2 LTS + Django REST Framework (monólito modular).
+- **Frontend:** React SPA (Vite + TypeScript). Lib de UI ainda não decidida.
+- **Admin (CRUD de hierarquia/catálogo):** Django Admin.
+- **Banco da aplicação:** PostgreSQL. **Fonte de histórico:** Postgres externo (read-only, via adaptador).
 
-Criar um app web interno para cadastrar metas globais por grupo, sugerir distribuicoes com base no historico de vendas, permitir ajustes manuais e liberar o fluxo somente quando os totais fecharem 100%.
+Justificativa e alternativas em [decisions.md](./decisions.md).
 
-## Usuarios
+## Documentação
+| Arquivo | Conteúdo |
+|---|---|
+| [architecture.md](./architecture.md) | Componentes, invariantes (fechamento e completude), isolamento de escopo, anticorruption layer, pontos de extensão plugáveis |
+| [data-model.md](./data-model.md) | Entidades conceituais (User, HierarchyNode, GoalAllocation, Cycle, catálogo) e relações |
+| [decisions.md](./decisions.md) | Registro das decisões-chave, alternativas descartadas e reversibilidade |
+| [open-questions.md](./open-questions.md) | Pendências de cálculo, hipóteses a confirmar, open questions ao usuário e ressalvas do gate de qualidade |
+| [roadmap.md](./roadmap.md) | Fora de escopo nesta versão e próximos passos de codificação |
 
-- Gerente: cria metas globais por grupo e distribui para coordenadores regionais.
-- Coordenador Regional: recebe metas por grupo, distribui para coordenadores locais e quebra metas de grupos em subgrupos para supervisores.
-- Coordenador Local: etapa obrigatoria entre Coordenador Regional e Supervisor.
-- Supervisor: recebe metas por subgrupo e distribui para vendedores.
-- Vendedor: recebe meta final em kg.
-- Administrador do sistema: mantem usuarios, permissoes, cadastros, importacoes e parametros.
+## Ressalvas do Plano (aprovado COM RESSALVAS pelo gate de qualidade) — todas resolvidas
+A revisão de qualidade **aprovou o plano com ressalvas**, na época com várias pendências em aberto.
+O usuário já resolveu todas elas diretamente:
+- **5 pendências de cálculo — todas resolvidas.** P1-P4 (Decisão 6, decomposição tendência +
+  sazonalidade sobre 12 meses) e P5 (Decisão 7, maior resto/Hamilton) têm fórmula aprovada e
+  implementada.
+- **4 hipóteses assumidas — todas confirmadas.** H1 (MVP só distribui), H2 (12 meses de histórico),
+  H3 (Administrador cuida de toda a gestão dentro da ferramenta) e H4 (reabertura sem aprovação
+  formal, implementada — `ReopenAllocationService`).
+- **5 open questions ao usuário — todas resolvidas.** O1 (granularidade do Vendedor: subgrupo), O3
+  (Postgres externo + mapeamento texto→entidade, Decisão 9), O4 (reatribuição ao nó pai quando a
+  hierarquia muda com ciclo aberto, Decisão 10) e O5 (User↔Node é 1:N, Decisão 10).
+- **Ressalva de rastreabilidade:** a preferência por Python e as prioridades de frontend foram
+  declaradas *após* a 1ª versão do design; a decisão de stack também se sustenta por fit técnico.
 
-Cada usuario operacional deve ter um perfil no sistema e, quando for um papel comercial, um escopo correspondente na hierarquia ativa.
+Detalhes e histórico de cada decisão em [open-questions.md](./open-questions.md) e
+[decisions.md](./decisions.md). **Não invente respostas para qualquer pendência nova que surgir** —
+o mesmo padrão de confirmação explícita vale daqui pra frente.
 
-## Valor De Negocio
-
-- Reduzir divergencias entre meta global e metas distribuidas.
-- Aumentar rastreabilidade de quem distribuiu, ajustou e liberou cada etapa.
-- Acelerar a criacao mensal de metas com sugestao automatica baseada em historico.
-- Dar aos gestores controle para ajustar a distribuicao antes do envio.
-- Criar uma base historica organizada de ciclos de metas.
-
-## Fluxo Principal
-
-1. Gerente cria ciclo mensal de metas.
-2. Gerente cadastra metas globais por grupo em kg.
-3. Sistema consulta historico de vendas no banco/ERP em modo somente leitura.
-4. Sistema sugere distribuicao inicial.
-5. Gerente ajusta se necessario e distribui grupos para coordenadores regionais.
-6. Coordenadores regionais distribuem metas de grupo para coordenadores locais, seguindo a hierarquia.
-7. Coordenadores locais recebem a meta do regional e distribuem para supervisores.
-8. Supervisores distribuem metas para vendedores.
-9. Cada etapa so pode enviar para o proximo nivel direto permitido.
-10. Em cada envio, o sistema valida se a soma distribuida fecha 100% da meta recebida.
-11. Se fechar 100%, o fluxo pode seguir para o proximo nivel.
-12. Se nao fechar 100%, o envio fica bloqueado ate correcao.
-
-## Escopo Inicial
-
-- Login proprio no Django.
-- Cadastro de usuarios e perfis.
-- Cadastro/importacao de hierarquia comercial por Excel.
-- Cadastro/importacao de grupos e subgrupos.
-- Manutencao administrativa de hierarquia, grupos e subgrupos para inclusoes, movimentacoes e inativacoes no dia a dia.
-- Criacao de ciclo mensal.
-- Criacao de metas globais por grupo em kg.
-- Sugestao automatica baseada em historico do ERP/banco.
-- Ajuste manual da sugestao.
-- Distribuicao hierarquica.
-- Validacao de fechamento 100%.
-- Historico basico de status, responsaveis e datas.
-
-## Fora Do Escopo Inicial
-
-- Login Microsoft/empresa em producao.
-- Aplicativo mobile.
-- Escrita no banco/ERP.
-- Metas financeiras em R$.
-- Metas por unidade configuravel.
-- Acompanhamento semanal.
-- Motor avancado de excecoes por variacao historica.
-- Aprovacao manual para distribuicao que nao fecha 100%.
-
-## Regras De Negocio
-
-- A meta oficial do MVP e mensal.
-- A unidade oficial do MVP e kg.
-- Toda meta distribuida deve somar exatamente 100% da meta recebida.
-- Quantidades operacionais em kg nao usam casas decimais.
-- O envio para o proximo nivel fica bloqueado se houver sobra ou falta.
-- A matriz obrigatoria de distribuicao e Gerente -> Coordenador Regional -> Coordenador Local -> Supervisor -> Vendedor.
-- A sugestao automatica nao e obrigatoria: o gestor pode ajustar antes de enviar.
-- A hierarquia e os cadastros podem ser importados por Excel e ajustados manualmente.
-- Importacao Excel deve ser usada para carga inicial ou lote; alteracoes rotineiras devem ser feitas no sistema pelo administrador.
-- Remocao operacional de hierarquia, grupo ou subgrupo deve ser inativacao, preservando historico.
-- Pessoas inativas devem permanecer no banco para historico, mas nao devem entrar em novas distribuicoes operacionais.
-- Codigos internos de origem devem ser mantidos no banco, mas nao precisam ser exibidos como informacao principal ao administrador.
-- Cadastros manuais devem gerar automaticamente o proximo codigo interno quando o administrador nao informar codigo.
-- Mudancas de hierarquia devem ter uma operacao propria para niveis abaixo da gerencia, preservando vigencia e historico.
-- O historico do ERP/banco deve ser usado apenas para leitura.
-- O historico de vendas do ERP deve seguir o contrato mensal por vendedor e subgrupo: mes de emissao, codigo auxiliar de supervisor, nome do vendedor, nome do subgrupo e total em kg.
-- A sugestao automatica deve localizar o destino pela hierarquia vigente do vendedor; o codigo de supervisor vindo do ERP e apenas dado auxiliar do historico.
-- O nome do subgrupo vindo do ERP deve bater exatamente com o cadastro interno de subgrupos.
-- Linhas do historico sem vendedor/supervisor devem ser agrupadas como volume sem vendedor do gerente, para manter o total completo da unidade, sem criar destino automatico em niveis inferiores.
-- O sistema deve registrar quem criou, alterou, distribuiu e liberou cada etapa.
-- Perfis comerciais devem operar somente dentro do seu escopo hierarquico ativo.
-
-## Layouts De Importacao Confirmados
-
-Os layouts oficiais de importacao Excel de subgrupos e hierarquia foram definidos a partir dos arquivos `SUBGRUPOS_BELLO.xlsx` e `hierarquia_bello.xlsx`.
-
-Detalhes obrigatorios:
-
-- `docs/IMPORT_LAYOUTS.md`
-
-## Hipoteses
-
-- O historico em kg esta disponivel no ERP/banco com granularidade suficiente para grupo, subgrupo, equipe e vendedor.
-- O Django usara templates ou componentes server-rendered no MVP, salvo decisao futura por frontend separado.
-- O PostgreSQL sera usado tanto em desenvolvimento quanto nos ambientes internos principais.
-
-## Pendencias
-
-- Confirmar a fonte exata do historico de vendas no ERP/banco.
-- Definir se a sugestao usa 3, 6, 12 meses ou outro periodo de historico.
-- Definir se vendedores podem apenas consultar ou tambem confirmar recebimento da meta.
-- Definir telas prioritarias do MVP.
+## Estado atual da codificação
+O núcleo de backend, o frontend e as 10 decisões de arquitetura/fórmula já estão implementados —
+ver o passo a passo completo em [roadmap.md](./roadmap.md#próximos-passos-de-codificação). Resumo
+do que falta hoje, puramente operacional (nenhuma decisão de design pendente):
+- Popular `ExternalProductMapping`/`ExternalSalespersonMapping` com dados reais da Bello (O3).
+- Um endpoint/UI que use as estratégias `AUTO` (P1-P4) para gerar sugestão de fato, hoje só a via manual está exposta.

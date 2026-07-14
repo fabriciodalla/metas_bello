@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class SalesHistoryConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.sales_history"
+    label = "sales_history"

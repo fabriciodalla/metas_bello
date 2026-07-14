@@ -1,0 +1,98 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f5f5f5;
+  color: #1a1a1a;
+}
+
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+  background: #1a1a2e;
+}
+
+.topnav a,
+.topnav span {
+  color: #fff;
+  text-decoration: none;
+}
+
+.topnav .spacer {
+  flex: 1;
+}
+
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 32px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  width: 320px;
+}
+
+.login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.login-form input {
+  padding: 8px;
+  font-size: 14px;
+}
+
+.error {
+  color: #c0392b;
+}
+
+.allocation-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.distribution-form table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.distribution-form td,
+.distribution-form th {
+  padding: 6px;
+  text-align: left;
+}
+
+.sum-ok {
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.sum-diff {
+  color: #c0392b;
+  font-weight: 600;
+}

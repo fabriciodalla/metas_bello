@@ -1,0 +1,10 @@
+from django.apps import AppConfig
+
+
+class HierarchyConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.hierarchy"
+    label = "hierarchy"
+
+    def ready(self):
+        from . import signals  # noqa: F401

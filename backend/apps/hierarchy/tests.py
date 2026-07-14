@@ -1,0 +1,87 @@
+from django.db import IntegrityError, transaction
+from django.test import TestCase
+
+from .models import ExternalSalespersonMapping, HierarchyClosure, HierarchyNode
+
+
+class HierarchyNodeTests(TestCase):
+    def test_create_root_gerente_node(self):
+        node = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente Bello")
+        self.assertIsNone(node.parent)
+        self.assertTrue(node.ativo)
+
+    def test_child_node_links_to_parent(self):
+        gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente Bello")
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional Sul", parent=gerente
+        )
+        self.assertEqual(regional.parent, gerente)
+        self.assertIn(regional, gerente.children.all())
+
+
+class HierarchyClosureTests(TestCase):
+    def test_closure_includes_self_and_all_ancestors(self):
+        gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=gerente
+        )
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=regional)
+
+        ancestors_of_local = set(
+            HierarchyClosure.objects.filter(descendant=local).values_list("ancestor_id", flat=True)
+        )
+        self.assertEqual(ancestors_of_local, {gerente.id, regional.id, local.id})
+
+        descendants_of_gerente = set(
+            HierarchyClosure.objects.filter(ancestor=gerente).values_list("descendant_id", flat=True)
+        )
+        self.assertEqual(descendants_of_gerente, {gerente.id, regional.id, local.id})
+
+    def test_closure_updates_when_node_is_reparented(self):
+        gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
+        regional_a = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional A", parent=gerente
+        )
+        regional_b = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional B", parent=gerente
+        )
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=regional_a)
+
+        local.parent = regional_b
+        local.save()
+
+        ancestors_of_local = set(
+            HierarchyClosure.objects.filter(descendant=local).values_list("ancestor_id", flat=True)
+        )
+        self.assertEqual(ancestors_of_local, {gerente.id, regional_b.id, local.id})
+        self.assertNotIn(regional_a.id, ancestors_of_local)
+
+    def test_closure_row_removed_when_node_is_deleted(self):
+        gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=gerente
+        )
+
+        regional.delete()
+
+        self.assertFalse(HierarchyClosure.objects.filter(descendant_id=regional.id).exists())
+
+
+class ExternalSalespersonMappingTests(TestCase):
+    def test_links_external_name_to_a_hierarchy_node(self):
+        vendedor = HierarchyNode.objects.create(level=HierarchyNode.Level.VENDEDOR, nome="Fulano")
+
+        mapping = ExternalSalespersonMapping.objects.create(
+            external_name="FULANO DA SILVA", hierarchy_node=vendedor
+        )
+
+        self.assertEqual(mapping.hierarchy_node, vendedor)
+
+    def test_external_name_is_unique(self):
+        vendedor_a = HierarchyNode.objects.create(level=HierarchyNode.Level.VENDEDOR, nome="A")
+        vendedor_b = HierarchyNode.objects.create(level=HierarchyNode.Level.VENDEDOR, nome="B")
+        ExternalSalespersonMapping.objects.create(external_name="FULANO", hierarchy_node=vendedor_a)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                ExternalSalespersonMapping.objects.create(external_name="FULANO", hierarchy_node=vendedor_b)

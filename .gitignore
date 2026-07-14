@@ -1,37 +1,11 @@
 .env
-.venv/
-venv/
-env/
+*.pyc
 __pycache__/
-*.py[cod]
-*.pyo
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-.tox/
-db.sqlite3
-local/
-
-# Node / Frontend
+*.sqlite3
+backend/staticfiles/
+backend/.pytest_cache/
 node_modules/
-.next/
-out/
-.turbo/
-
-# Claude Code
-.claude/settings.local.json
-
-# IDE
-.idea/
+frontend/dist/
+*.tsbuildinfo
 .vscode/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build
-dist/
-build/
-*.egg-info/
+.idea/
