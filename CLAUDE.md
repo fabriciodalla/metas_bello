@@ -14,23 +14,31 @@ falta. Detalhe em [docs/architecture.md](docs/architecture.md).
 
 ## Regra de ouro: não invente as fórmulas
 
-Existem **5 pendências de cálculo conhecidas** (sugestão automática por grupo, distribuição
-Regional→Local, quebra grupo→subgrupo, distribuição Supervisor→Vendedor, e o método de
-arredondamento/rateio de resto) que o usuário ainda vai definir — ver
-[docs/open-questions.md](docs/open-questions.md). **Nunca hardcode uma fórmula definitiva.**
-Implemente essas peças como estratégias plugáveis (`DistributionStrategy`, `SuggestionStrategy`,
-`RoundingPolicy`, conforme [docs/architecture.md](docs/architecture.md)); se precisar de um
-placeholder para destravar desenvolvimento, marque-o explicitamente como **não-aprovado** no nome
-da classe/docstring.
+As **5 pendências de cálculo** (sugestão automática por grupo, distribuição Regional→Local, quebra
+grupo→subgrupo, distribuição Supervisor→Vendedor, e o método de arredondamento/rateio de resto) já
+foram todas definidas pelo usuário e implementadas — ver
+[docs/open-questions.md](docs/open-questions.md) e [docs/decisions.md](docs/decisions.md) (Decisões
+6 e 7). **Isso não abre licença para hardcodar fórmula nova sem confirmação**: qualquer pendência
+futura (ou revisão de uma fórmula já aprovada) segue exigindo confirmação explícita do usuário antes
+de virar requisito definitivo. Continue implementando esses pontos como estratégias plugáveis
+(`DistributionStrategy`, `SuggestionStrategy`, `RoundingPolicy`, conforme
+[docs/architecture.md](docs/architecture.md)) — fórmula aprovada não significa fórmula travada no
+código; se precisar de um placeholder novo para destravar desenvolvimento, marque-o explicitamente
+como **não-aprovado** no nome da classe/docstring.
 
 ## Stack e estrutura
 
 - **Backend:** Python 3.12, Django 5.2 LTS + Django REST Framework, dentro de `backend/`.
 - **Apps de domínio** (`backend/apps/`): `hierarchy` (árvore de nós), `catalog` (grupos/subgrupos/
   produtos), `cycles` (ciclo mensal), `allocations` (`GoalAllocation`, o repasse de meta —
-  entidade central), `accounts` (`User` customizado com login próprio e vínculo à hierarquia).
-- **Frontend:** ainda não existe (React + Vite/TS planejado — ver
-  [docs/roadmap.md](docs/roadmap.md), passo 8, só depois do núcleo do backend estar validado).
+  entidade central), `accounts` (`User` customizado com login próprio e vínculo à hierarquia),
+  `audit` (`AuditLogEntry`, histórico de mudanças em hierarquia/catálogo), `sales_history`
+  (anticorruption layer para o Postgres externo — sync + `DistributionBaseline`).
+- **Frontend:** React + Vite/TS, dentro de `frontend/`, consumindo a API DRF via proxy do Vite
+  (sem CORS/porta cruzada) — ver [docs/roadmap.md](docs/roadmap.md), passo 8. Duas telas: grade de
+  distribuição (`DistributionPage`/`DistributionForm`, com feedback de soma em tempo real) e a
+  tela de gestão do Administrador (`AdminPage`, leitura de hierarquia/catálogo, edição de fato
+  continua no Django Admin — Decisão 4).
 - **Banco:** PostgreSQL 16, só acessível via Docker Compose.
 - Nomenclatura do projeto é **nova**, sem herança de versões anteriores — não existe código
   legado neste repo para seguir de referência.
@@ -83,7 +91,7 @@ concluída.
   Django, credenciais do Postgres externo do histórico de vendas).
 - Nunca escreva no Postgres externo do histórico de vendas — acesso é **somente leitura**, via
   `SalesHistoryProvider` (ver anticorruption layer em
-  [docs/architecture.md](docs/architecture.md)). Use o Fake Provider para dev/testes enquanto a
-  fonte real (pendência O3) não estiver definida.
+  [docs/architecture.md](docs/architecture.md)). A fonte real já está conectada e sincronizada
+  (Decisão 9); não existe mais Fake Provider no código.
 - Nunca permita que uma alocação (`GoalAllocation`) seja persistida sem fechar 100% com a
   alocação-pai — é a invariante central do produto.
