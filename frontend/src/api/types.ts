@@ -82,3 +82,26 @@ export interface ChildAllocationInput {
   subgroup_id?: number | null;
   product_id?: number | null;
 }
+
+export interface AllocationOverview {
+  id: number;
+  cycle: number;
+  owner_node: number;
+  owner_node_level: string;
+  owner_node_nome: string;
+  owner_node_usernames: string[];
+  parent_allocation: number | null;
+  granularity: Granularity;
+  quantity_kg: number;
+  distributed: boolean;
+  criado_por_username: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SyncResult {
+  synced_since: string;
+  accumulated_count: number;
+  portfolio_count: number;
+  baseline_count: number;
+}
