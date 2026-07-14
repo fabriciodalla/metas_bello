@@ -31,15 +31,15 @@ export function DistributionPage() {
       .finally(() => setLoading(false));
   }, [selectedCycleId]);
 
-  const myNodeId = user?.hierarchy_node?.id ?? null;
+  const myNodeIds = useMemo(() => new Set(user?.hierarchy_nodes.map((n) => n.id) ?? []), [user]);
 
   const pending = useMemo(
-    () => allocations.filter((a) => a.owner_node === myNodeId && !a.distributed),
-    [allocations, myNodeId],
+    () => allocations.filter((a) => myNodeIds.has(a.owner_node) && !a.distributed),
+    [allocations, myNodeIds],
   );
   const done = useMemo(
-    () => allocations.filter((a) => a.owner_node === myNodeId && a.distributed),
-    [allocations, myNodeId],
+    () => allocations.filter((a) => myNodeIds.has(a.owner_node) && a.distributed),
+    [allocations, myNodeIds],
   );
 
   function refresh() {

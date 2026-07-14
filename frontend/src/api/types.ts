@@ -8,7 +8,7 @@ export interface User {
   id: number;
   username: string;
   is_admin: boolean;
-  hierarchy_node: HierarchyNodeSummary | null;
+  hierarchy_nodes: HierarchyNodeSummary[];
 }
 
 export interface HierarchyNode {
