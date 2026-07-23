@@ -48,7 +48,7 @@ Microserviços introduziriam consistência distribuída sem nenhum benefício ex
 | Componente | Responsabilidade | Tecnologia |
 |---|---|---|
 | Frontend de distribuição | Grade de distribuição com feedback de soma em tempo real; telas por nível | React SPA (Vite + TypeScript) |
-| Painel do Administrador | CRUD de hierarquia, pessoas, vínculos, catálogo | Django Admin |
+| Painel do Administrador | CRUD de hierarquia, usuários, catálogo; visão geral, metas por nível, pendências, pré-processamento | React SPA (`/admin`), API DRF `IsAppAdmin` |
 | Backend / API | Regras de negócio, invariantes, autorização | Django 5.2 LTS + DRF (Python) |
 | Módulo Hierarquia | Árvore de nós/posições + closure table para consultas de subárvore | ORM + tabela de fechamento |
 | Módulo Catálogo | Grupos e subgrupos de produto + mapeamento p/ fonte externa | ORM |
@@ -62,8 +62,10 @@ Modelo de dados detalhado em [data-model.md](./data-model.md). Racional das esco
 [decisions.md](./decisions.md).
 
 ## API (DRF, sessão autenticada)
-Endpoints de distribuição para a SPA (`frontend/`) — CRUD de hierarquia/catálogo continua só no
-Django Admin (Decisão 4), a API DRF não duplica esse CRUD.
+Endpoints de distribuição para a SPA (`frontend/`). CRUD de hierarquia/catálogo/usuários mora na
+própria API desde a revisão da Decisão 4 — só os mapeamentos texto→entidade da Decisão 9
+(`ExternalProductMapping`/`ExternalSalespersonMapping`) e `Product` (fora do MVP, O1) continuam
+só no Django Admin.
 
 | Endpoint | Método | O que faz |
 |---|---|---|
@@ -71,21 +73,28 @@ Django Admin (Decisão 4), a API DRF não duplica esse CRUD.
 | `/api/auth/login/` | POST | Autentica por sessão (usuário/senha, sem SSO) |
 | `/api/auth/logout/` | POST | Encerra a sessão |
 | `/api/auth/me/` | GET | Usuário autenticado + `hierarchy_nodes` (lista — O5, 1:N) |
-| `/api/hierarchy/nodes/` | GET | Nós visíveis (`HierarchyNode.objects.visible_to`) |
+| `/api/hierarchy/nodes/` | GET/POST/PUT/PATCH | Nós visíveis (`HierarchyNode.objects.visible_to`); escrita só `IsAppAdmin`, sem `destroy` (inativa via `ativo=False`, nunca apaga); valida nível/pai e dispara O4 no update |
+| `/api/accounts/users/` | GET/POST/PUT/PATCH | CRUD de usuário (`IsAppAdmin`): username, senha (opcional na edição), `is_admin`, `is_active`, `hierarchy_node_ids`; sem `destroy` |
 | `/api/cycles/` | GET | Lista/detalhe de ciclos |
 | `/api/cycles/{id}/completeness/` | GET | `CycleCompletenessChecker` — alocações presas |
 | `/api/cycles/{id}/close/` | POST | `CloseCycleService.close` (400 se incompleto) |
+| `/api/cycles/{id}/distribution-overview/` | GET | `IsAppAdmin` — todas as alocações do ciclo, qualquer nível, para as telas de Metas/Pendências |
+| `/api/cycles/{id}/export/` | GET | `IsAppAdmin` — CSV com a árvore inteira de alocações do ciclo |
 | `/api/allocations/` | GET | Alocações visíveis (`GoalAllocation.objects.visible_to`), filtro `?cycle=` |
 | `/api/allocations/{id}/distribute/` | POST | `DistributeGoalService.distribute` (400 em erro de fechamento/escopo) |
 | `/api/allocations/{id}/reopen/` | POST | `ReopenAllocationService.reopen` (H4 — 400 se não distribuída, se o ciclo não está aberto, ou em erro de escopo) |
-| `/api/catalog/groups/` | GET | Grupos de produto ativos |
-| `/api/catalog/subgroups/` | GET | Subgrupos ativos, filtro `?group=` (usado na quebra Local→Supervisor) |
-| `/api/catalog/products/` | GET | Produtos ativos, filtro `?subgroup=` |
+| `/api/catalog/groups/` | GET/POST/PUT/PATCH | Grupos de produto; não-admin só vê ativos, admin vê todos; escrita `IsAppAdmin`, sem `destroy` |
+| `/api/catalog/subgroups/` | GET/POST/PUT/PATCH | Subgrupos, filtro `?group=`; mesmas regras de visibilidade/escrita dos grupos |
+| `/api/catalog/products/` | GET | Produtos ativos, filtro `?subgroup=` — só leitura (fora do MVP, O1) |
+| `/api/sales-history/sync/` | POST | `IsAppAdmin` — dispara `SalesHistorySyncService` + rebuild do `DistributionBaseline` |
 
 Toda escrita de `GoalAllocation`/`Cycle` passa pelos serviços de domínio já existentes — a view
-nunca persiste diretamente (mesma regra do CLAUDE.md: regra de negócio fica no serviço). O
-catálogo é só leitura pela API (CRUD continua no Django Admin) — a distribuição precisa listar
-grupos/subgrupos para montar o payload de `distribute`, principalmente na quebra grupo→subgrupo.
+nunca persiste diretamente (mesma regra do CLAUDE.md: regra de negócio fica no serviço). O CRUD de
+hierarquia/catálogo/usuário segue o mesmo princípio onde há regra de negócio: a validação de
+nível/pai fica no serializer (é forma de dado, não invariante de domínio) e o gatilho de
+reatribuição (O4) fica em `HierarchyChangeReassignmentService.detect_and_reassign_if_needed`,
+compartilhado entre o Django Admin e a API — ver Decisão 4 (revisão) em
+[decisions.md](./decisions.md).
 
 ## Frontend (React SPA)
 `frontend/` — Vite + TypeScript, sessão autenticada via cookie (sem SSO, ver Decisão 4).
@@ -99,8 +108,20 @@ grupos/subgrupos para montar o payload de `distribute`, principalmente na quebra
   do usuário — O5, 1:N) pendentes vs. já distribuídas; formulário multi-linha (destino + quantidade, e
   subgrupo quando a granularidade quebra) com soma calculada no cliente antes de enviar —
   o `ClosureValidator` no backend continua sendo a fonte de verdade, o cliente só dá feedback.
-- **Tela do Administrador** — só leitura (árvore de hierarquia, catálogo); link para o Django
-  Admin para editar. Deliberadamente não duplica o CRUD que o Django Admin já resolve.
+- **Área do Administrador (`/admin/*`)** — layout com sub-rotas (Decisão 4, revisão), só para
+  `is_admin`:
+  - **Visão Geral** — progresso do ciclo aberto (completude, KG parado por nível).
+  - **Gestão** — CRUD de hierarquia (criar/inativar nó, reparentar, trocar nível), usuários
+    (criar/inativar, senha, papel admin, vínculo com nós) e catálogo (grupos/subgrupos). Sem botão
+    de excluir em lugar nenhum — só inativar (`ativo`/`is_active`), para não perder vínculo
+    histórico com alocações/auditoria.
+  - **Metas** — meta distribuída agregada por nível hierárquico, por ciclo.
+  - **Pendências** — quem ainda não distribuiu (alocações intermediárias com `distributed=False`).
+  - **Pré-processamento** — dispara a sincronização do histórico de vendas (`/sales-history/sync/`)
+    e reserva espaço para configurações futuras.
+  - **Dashboard** — placeholder reservado para uso futuro.
+  - Os mapeamentos da Decisão 9 (`ExternalProductMapping`/`ExternalSalespersonMapping`) continuam
+    só no Django Admin — curadoria pontual, fora do escopo pedido para a área do Administrador.
 
 ## Invariante 1 — Fechamento exato (local, por repasse)
 Regra rígida e não-negociável do brief: em cada nível, a soma distribuída para baixo fecha
@@ -179,8 +200,10 @@ periódica em vez de leitura ao vivo:
 - **`DistributionBaseline`** (`DistributionBaselineService.rebuild()`): terceira tabela local,
   não espelhada do externo — derivada de `AccumulatedSale` + `ClientPortfolioSnapshot` via join
   por `client_code` (clifor). Reatribui cada venda ao vendedor **atual** da carteira do cliente,
-  não a quem historicamente vendeu, e agrupa por (ano, mês, vendedor, subgrupo). É a base que as
-  fórmulas de distribuição (P1–P4) consomem. Rodada automaticamente ao final de
+  não a quem historicamente vendeu, e agrupa por (ano, mês, vendedor, subgrupo). Cliente sem
+  vendedor vigente na carteira gera linha com `salesperson_name=NULL` em vez de ser descartado —
+  ver Decisão 12. `total_quantity` do agrupamento é sempre KG inteiro (`ROUND_HALF_UP`). É a base
+  que as fórmulas de distribuição (P1–P4) consomem. Rodada automaticamente ao final de
   `sync_sales_history`, ou isolada via `rebuild_distribution_baseline`.
 - **Mapeamentos texto→entidade (O3, resolvido — ver Decisão 9):** `DistributionBaseline` só
   tem texto do ERP (`subgroup_name`, `salesperson_name`), sem código estável. Dois mapeamentos
@@ -193,9 +216,13 @@ periódica em vez de leitura ao vivo:
 - **`SalesHistoryProvider`** (`apps/sales_history/provider.py`) — a porta formal que faltava:
   resolve `DistributionBaseline` para séries `MonthlyQuantity` (ano, mês, quantidade) usando os
   dois mapeamentos acima. `group_history(group_id, ...)` soma todos os subgrupos mapeados de um
-  grupo (P1). `target_history(hierarchy_node_id, ...)` soma o histórico de todo Vendedor
-  descendente de um nó (via `ScopeResolver`/`HierarchyClosure`), filtrado por grupo/subgrupo
-  (P2-P4). Meses sem dado entram com `quantity_kg=0` (série sem buracos, como as estratégias
+  grupo (P1) **sem filtrar por vendedor** — por isso inclui as linhas `salesperson_name=NULL`
+  (Decisão 12): o Gerente vê o volume real do grupo, mesmo a fração sem vendedor titular na
+  carteira no momento. `target_history(hierarchy_node_id, ...)` soma o histórico de todo Vendedor
+  descendente de um nó (via `ScopeResolver`/`HierarchyClosure`), filtrado por
+  `salesperson_name__in=[nomes mapeados]` — linhas `NULL` nunca casam com um nome específico, então
+  ficam de fora de P2-P4 (correto: sem vendedor vigente não dá pra atribuir a um Vendedor/Supervisor
+  específico). Meses sem dado entram com `quantity_kg=0` (série sem buracos, como as estratégias
   exigem). Consumido diretamente por `SeasonalTrendSuggestionStrategy`/
   `SeasonalTrendDistributionStrategy` — provado por teste de ponta a ponta em
   `apps/sales_history/test_provider.py`.

@@ -5,7 +5,7 @@ from rest_framework.test import APITestCase
 
 from apps.allocations.models import GoalAllocation
 from apps.allocations.services import ChildAllocationSpec, DistributeGoalService
-from apps.catalog.models import ProductGroup
+from apps.catalog.models import ProductGroup, ProductSubgroup
 from apps.hierarchy.models import HierarchyNode
 
 from .models import Cycle
@@ -28,6 +28,71 @@ class CycleApiTests(APITestCase):
             criado_por=self.user,
         )
         self.client.force_login(self.user)
+
+    def _distribute_full_chain_to_vendedor(self):
+        """Regional->Local->Supervisor->Vendedor sob self.gerente, tudo distribuído por
+        self.user (dono de todos os nós — atalho válido, O5 é 1:N)."""
+        subgroup = ProductSubgroup.objects.create(nome="Linguiça", group=self.group)
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
+        )
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=regional)
+        supervisor = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=local
+        )
+        vendedor = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.VENDEDOR, nome="Vendedor", parent=supervisor
+        )
+        self.user.hierarchy_nodes.add(regional, local, supervisor)
+
+        (regional_alloc,) = DistributeGoalService.distribute(
+            self.allocation,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=regional.id,
+                    quantity_kg=100,
+                    granularity=GoalAllocation.Granularity.GROUP,
+                    group_id=self.group.id,
+                )
+            ],
+            criado_por=self.user,
+        )
+        (local_alloc,) = DistributeGoalService.distribute(
+            regional_alloc,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=local.id,
+                    quantity_kg=100,
+                    granularity=GoalAllocation.Granularity.GROUP,
+                    group_id=self.group.id,
+                )
+            ],
+            criado_por=self.user,
+        )
+        (supervisor_alloc,) = DistributeGoalService.distribute(
+            local_alloc,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=supervisor.id,
+                    quantity_kg=100,
+                    granularity=GoalAllocation.Granularity.SUBGROUP,
+                    subgroup_id=subgroup.id,
+                )
+            ],
+            criado_por=self.user,
+        )
+        DistributeGoalService.distribute(
+            supervisor_alloc,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=vendedor.id,
+                    quantity_kg=100,
+                    granularity=GoalAllocation.Granularity.SUBGROUP,
+                    subgroup_id=subgroup.id,
+                )
+            ],
+            criado_por=self.user,
+        )
 
     def test_requires_authentication(self):
         self.client.logout()
@@ -89,13 +154,31 @@ class CycleApiTests(APITestCase):
         self.assertEqual(entry["owner_node_nome"], "Gerente")
         self.assertEqual(entry["owner_node_usernames"], ["gerente"])
         self.assertFalse(entry["distributed"])
+        self.assertIsNone(entry["owner_node_parent_id"])
+        self.assertIsNone(entry["owner_node_parent_nome"])
+        self.assertEqual(entry["group_nome"], "Embutidos")
+        self.assertIsNone(entry["subgroup_nome"])
+
+    def test_distribution_overview_resolves_superior_and_group_for_subgroup_allocation(self):
+        self._distribute_full_chain_to_vendedor()
+        admin = User.objects.create_user(username="admin", password="x", is_admin=True)
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse("cycle-distribution-overview", kwargs={"pk": self.cycle.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        vendedor_entry = next(e for e in response.data if e["owner_node_nome"] == "Vendedor")
+        self.assertEqual(vendedor_entry["owner_node_parent_nome"], "Supervisor")
+        self.assertEqual(vendedor_entry["group_nome"], "Embutidos")
+        self.assertEqual(vendedor_entry["subgroup_nome"], "Linguiça")
 
     def test_export_rejects_non_admin(self):
         response = self.client.get(reverse("cycle-export", kwargs={"pk": self.cycle.pk}))
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_export_returns_csv_with_all_allocations(self):
+    def test_export_returns_csv_with_vendedor_rows(self):
+        self._distribute_full_chain_to_vendedor()
         admin = User.objects.create_user(username="admin", password="x", is_admin=True)
         self.client.force_login(admin)
 
@@ -104,5 +187,33 @@ class CycleApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response["Content-Type"], "text/csv")
         body = response.content.decode("utf-8")
-        self.assertIn("Gerente", body)
-        self.assertIn(str(self.allocation.quantity_kg), body)
+        header, row, *_ = body.splitlines()
+        self.assertEqual(
+            header,
+            "coordenador_regional,coordenador_local,supervisor,vendedor,grupo,subgrupo,meta_kg,ciclo,status",
+        )
+        self.assertEqual(row, "Regional,Local,Supervisor,Vendedor,Embutidos,Linguiça,100,07/2026,META")
+
+    def test_vendedor_report_rejects_non_admin(self):
+        response = self.client.get(reverse("cycle-vendedor-report", kwargs={"pk": self.cycle.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_vendedor_report_returns_flattened_rows_for_admin(self):
+        self._distribute_full_chain_to_vendedor()
+        admin = User.objects.create_user(username="admin", password="x", is_admin=True)
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse("cycle-vendedor-report", kwargs={"pk": self.cycle.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        row = response.data[0]
+        self.assertEqual(row["regional"], "Regional")
+        self.assertEqual(row["local"], "Local")
+        self.assertEqual(row["supervisor"], "Supervisor")
+        self.assertEqual(row["vendedor"], "Vendedor")
+        self.assertEqual(row["grupo"], "Embutidos")
+        self.assertEqual(row["subgrupo"], "Linguiça")
+        self.assertEqual(row["quantity_kg"], 100)
+        self.assertEqual(row["status"], "META")

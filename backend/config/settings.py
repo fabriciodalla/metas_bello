@@ -73,6 +73,20 @@ if env("SALES_HISTORY_DATABASE_URL", default=""):
 
 AUTH_USER_MODEL = "accounts.User"
 
+# E-mail (link de definição/redefinição de senha). Sem SMTP configurado ainda: o backend padrão só
+# imprime o e-mail no log do processo (`docker compose logs backend`). Configure
+# DJANGO_EMAIL_BACKEND + as variáveis EMAIL_* quando houver um servidor de e-mail real.
+EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="naoresponda@bello.local")
+
+# URL do frontend, usada para montar o link enviado por e-mail (ex.: /redefinir-senha/...).
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},

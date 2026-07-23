@@ -64,6 +64,27 @@
   aprovada** — será escolhida na implementação, otimizando setup fácil + aparência atraente. O que está
   fixado é o framework de renderização (React SPA via Vite/TS), não uma lib de componentes.
 - **Reversibilidade:** fácil (contrato via API JSON isola o frontend do backend).
+- **Revisão (o CRUD migrou do Django Admin pra SPA):** o usuário pediu explicitamente que o
+  Administrador tenha uma tela própria, dentro da SPA, para gerir hierarquia (criar/inativar nós,
+  reparentar, trocar de nível), usuários (criar/inativar, papel admin, senha, vínculo com nós) e
+  catálogo (grupos/subgrupos). Isso reverte a metade "Django Admin" desta decisão — o framework de
+  frontend (React SPA/Vite) continua o mesmo, só a **superfície de CRUD** mudou de dono.
+  - **Motivo:** H3 ("Administrador cuida de toda a gestão dentro da ferramenta", ver
+    [PROJECT.md](./PROJECT.md)) já apontava nessa direção; o usuário confirmou que quer isso
+    consolidado numa tela só, sem alternar para o Django Admin no dia a dia.
+  - **O que ficou só no Django Admin:** os mapeamentos texto→entidade da Decisão 9
+    (`ExternalProductMapping`, `ExternalSalespersonMapping`) — curadoria pontual, não citada no
+    pedido do usuário, sem tela dedicada por ora. `Product` (fora do MVP, O1) também não ganhou CRUD.
+  - **Implementação:** `HierarchyNodeViewSet`/`ProductGroupViewSet`/`ProductSubgroupViewSet` viraram
+    CRUD (sem `destroy` — só inativar via `ativo=False`, nunca apagar) com escrita restrita a
+    `IsAppAdmin`; novo `UserAccountViewSet` (`apps/accounts`) cobre CRUD de usuário. O gatilho de O4
+    (`HierarchyChangeReassignmentService`, Decisão 10) que antes só existia em
+    `HierarchyNodeAdmin.save_model` foi extraído para
+    `HierarchyChangeReassignmentService.detect_and_reassign_if_needed()`, chamado tanto pelo Django
+    Admin quanto pelo `perform_update` do novo viewset — a checagem de transição
+    (desativado/reparentado) fica centralizada em vez de duplicada.
+  - **Reversibilidade:** fácil — a checagem de transição está isolada num único método; voltar a
+    Django-Admin-only seria só parar de expor os novos endpoints de escrita.
 
 ## Decisão 5 — Ponto de extensão para as fórmulas (plugável)
 - **Escolha:** interfaces `DistributionStrategy` + `RoundingPolicy`, selecionadas via registry por
@@ -89,7 +110,7 @@
   peso relativo, normalizado pelo `RoundingPolicy` (P5) para fechar exatamente com o total recebido.
   Implementado em `SeasonalTrendSuggestionStrategy` e `SeasonalTrendDistributionStrategy`
   (`backend/apps/allocations/strategies.py`), registradas como modo `AUTO` para os níveis
-  REGIONAL/LOCAL/SUPERVISOR (não GERENTE, que não tem pendência de distribuição automática nomeada).
+  GERENTE/REGIONAL/LOCAL/SUPERVISOR (GERENTE incluído em 2026-07-22, ver refinamento abaixo).
 - **Limitação conhecida e aceita pelo usuário:** com apenas 12 meses (1 ano) de histórico, cada
   índice sazonal por mês do calendário vem de **uma única observação** — não distingue padrão
   sazonal real de um evento pontual naquele mês específico (uma ruptura de estoque, uma promoção).
@@ -120,6 +141,39 @@
   P1-P4 é sempre uma **sugestão revisável** — o usuário do nível aprova como está ou corrige valores
   específicos antes de confirmar; nenhuma alocação é persistida sem esse toque humano, e o mesmo
   endpoint/serviço de `distribute` já existente cobre os dois casos (manual e auto).
+- **Refinamento (2026-07-21) — peso de P2-P4 usa sempre o histórico do GRUPO inteiro, nunca de
+  subgrupo:** para P2 (Regional→Local), P3 (quebra Local→Supervisor) e P4 (Supervisor→Vendedor), o
+  peso/proporção de cada alvo na fórmula de tendência+sazonalidade **é sempre calculado sobre o
+  histórico agregado do grupo inteiro daquele alvo** — `SalesHistoryProvider.target_history(...,
+  group_id=X, subgroup_id=None)` — **nunca** sobre o histórico de um subgrupo específico, mesmo nos
+  níveis em que o repasse resultante é decomposto por subgrupo (P3) ou já nasce em granularidade
+  SUBGROUP (P4, meta final do Vendedor). Quem for ligar o registry em modo `AUTO` a um endpoint (ver
+  [open-questions.md](./open-questions.md), item "Frente ainda em aberto") não deve passar
+  `subgroup_id` ao montar `history_by_target` para essas três pendências — só `group_id`.
+  - **Motivo:** histórico por subgrupo (e mais ainda por combinação subgrupo × vendedor individual)
+    é substancialmente mais esparso que o já limitado histórico de 12 meses por grupo — a mesma
+    fragilidade do índice sazonal com uma única observação por mês, documentada acima, só que
+    agravada por menos volume de dado por série. Pesar a distribuição por uma série tão rala
+    arriscaria proporções mais ruidosas do que úteis.
+  - **Fora de escopo aqui:** este refinamento resolve *qual histórico pesa a proporção entre
+    alvos*, não *como a fatia de um alvo se decompõe em subgrupos* (a segunda metade de P3) — isso
+    continua sendo uma fórmula própria, ainda sem endpoint `AUTO` ligado, e segue exigindo a mesma
+    confirmação explícita do usuário antes de virar requisito definitivo (regra de ouro do
+    CLAUDE.md) caso alguém proponha uma.
+- **Refinamento (2026-07-22) — modo `AUTO` estendido para Gerente→Regional, a pedido explícito do
+  usuário:** o repasse Gerente→Regional, até aqui só manual (Decisão original: "Gerente->Regional
+  não é uma das pendências nomeadas em open-questions.md"), passa a ter `suggested_kg`
+  pré-preenchido também, usando a **mesma** `SeasonalTrendDistributionStrategy` +
+  `LargestRemainderRoundingPolicy` já aprovadas para P2-P4 — nenhuma fórmula nova, só registro do
+  nível GERENTE no modo `AUTO` do registry (`_build_default_registry`,
+  `backend/apps/allocations/strategies.py`). Segue o mesmo padrão dos demais níveis: o total de
+  referência é sempre a alocação-pai (`total_kg` recebido pelo Gerente), o peso por Coordenador
+  Regional vem do histórico de 12 meses do grupo inteiro (nunca subgrupo, ver refinamento
+  2026-07-21 acima), o fechamento exato (sem sobra/falta) é garantido pelo método do maior resto
+  (Decisão 7), e o valor sugerido continua 100% editável antes de confirmar — nada muda no
+  workflow de sugestão revisável já descrito acima. Nenhuma mudança de frontend foi necessária: a
+  UI (`DistributionForm`) já consumia `suggested_kg` de forma genérica e já exibia contexto
+  histórico para GERENTE (ver open-questions.md, "Frente que já foi aberta").
 - **Reversibilidade:** fácil — troca de `RoundingPolicy`/`DistributionStrategy` por design (Decisão 5).
 
 ## Decisão 7 — Método de arredondamento (P5): maior resto / Hamilton
@@ -207,6 +261,18 @@
   identificação melhor (ex.: se o ERP passar a expor código estável) não muda o contrato do
   `SalesHistoryProvider` nem das estratégias.
 
+**Revisão 2026-07-22 — `ExternalSalespersonMapping` passa a ter uma etapa de auto-match por
+igualdade EXATA.** O usuário confirmou que, nesta base, o nome cadastrado em `HierarchyNode`
+(VENDEDOR) é **idêntico** (mesma grafia, sem variação) ao `DistributionBaseline.salesperson_name`
+correspondente — não é mais uma heurística de similaridade/normalização (o que continua descartado
+pelo motivo original), é comparação de string exata sobre duas fontes já curadas. Implementado em
+`backend/apps/hierarchy/management/commands/match_external_salespersons.py`, idempotente (só cria
+o que ainda não existe, nunca sobrescreve). Rodado uma vez em 2026-07-22: 90/100 Vendedores
+casaram exatamente; os 10 que sobraram (grafia diferente entre o cadastro e o ERP, ou nome ainda
+não sincronizado) continuam exigindo curadoria manual pelo Django Admin — o comando não tenta
+aproximar esses casos. `FeristaCoverage` (Decisão 13) não é afetado: os nomes de ferista no ERP
+que não têm `HierarchyNode` próprio continuam resolvidos por aquele mecanismo, não por este.
+
 ## Decisão 10 — Reatribuição de meta em mudança de hierarquia (O1, O4, O5)
 
 **O1 — Granularidade do Vendedor: subgrupo.** A meta final do Vendedor é distribuída por subgrupo
@@ -273,6 +339,169 @@ permanece existindo, sem uso ativo, como ponto de extensão caso a decisão mude
   isso passar a importar (ex.: auditoria por posição, não só por pessoa).
 - **Reversibilidade:** média — voltar pra 1:1 exigiria decidir qual nó "vence" para usuários que
   hoje tenham mais de um.
+
+- **Revisão (2026-07-21) — múltiplos cargos passam a ser alcançáveis pela API/SPA, não só pelo
+  Django Admin:** o schema M2M (1:N) já existia desde a Decisão 10 original, mas
+  `UserAccountSerializer._sync_position` só tratava **uma** posição por usuário (a primeira) —
+  criar/editar pela tela sempre criava, reaproveitava ou reparentava esse único nó, sem jeito de
+  *acrescentar* um segundo cargo sem antes passar pelo Django Admin diretamente no banco.
+  - **Escolha:** duas actions novas em `UserAccountViewSet`
+    (`backend/apps/accounts/views.py`): `POST /accounts/users/{id}/positions/` (acrescenta um
+    cargo novo — mesma resolução de nó da Decisão 11: reaproveita um nó livre com nome/cargo/
+    superior batendo, ou cria um novo) e `DELETE /accounts/users/{id}/positions/{node_id}/`
+    (desvincula um dos cargos, sem apagar o nó). Nenhuma das duas mexe nas posições que a pessoa
+    já tem. A lógica de resolução de nó foi extraída pra uma função module-level
+    (`resolve_or_create_node`, `apps/accounts/serializers.py`), compartilhada entre o fluxo de
+    posição inicial (`create`/`update`) e essas duas actions novas.
+  - **Caso de uso concreto:** um Coordenador Regional que também acumula o cargo de Coordenador
+    Local de um dos ramos abaixo dele (ou um Local que também é Supervisor de um dos seus
+    próprios Supervisors) — a mesma pessoa, dois nós na árvore, cada um com seu próprio cargo e
+    superior.
+  - **Sem tela própria ainda:** essas duas actions são só backend — não há botão em
+    `UserEditModal`/`HierarchyManager` pra usá-las por enquanto (ficaria pra uma iteração futura
+    de UI, se pedido). Testadas em `test_admin_can_add_second_position_to_same_user`,
+    `test_add_position_rejects_exact_duplicate` e
+    `test_admin_can_remove_one_of_multiple_positions_without_deleting_the_node`
+    (`backend/apps/accounts/test_api.py`).
+  - **Reversibilidade:** fácil — são duas actions aditivas; removê-las não afeta o fluxo de
+    posição única (`create`/`update`), que continua intacto.
+
+## Decisão 11 — Todo usuário criado já nasce vinculado à posição real na hierarquia
+- **Regra operacional:** ao cadastrar um usuário (tela Gestão → Usuários, `UserAccountSerializer`),
+  o cargo/posição na hierarquia é definido **no mesmo ato de criação** — não existe fluxo aprovado
+  de "criar usuário sem hierarquia e vincular depois", exceto para o papel Administrador puro (sem
+  posição na cascata, Decisão 4).
+- **Por quê:** um usuário sem nó vinculado não consegue receber/distribuir meta (toda a lógica de
+  posse e escopo em `DistributeGoalService`/`ReopenAllocationService`/`ScopeResolver` depende de
+  `user.hierarchy_nodes`) — deixar esse vínculo para "depois" só cria trabalho de garimpo futuro
+  (usuários órfãos) sem nenhum benefício.
+- **Como o produto favorece isso:** o formulário de usuário (`UserEditModal`) tem como campo
+  principal "Posição na hierarquia" — um seletor único com todas as posições já cadastradas e
+  ainda sem usuário, agrupadas por cargo. Reaproveitar uma posição existente (ex.: hierarquia
+  importada de planilha, com o nome real da pessoa) é o caminho padrão; criar cargo+superior do
+  zero (`node_id` ausente na API) é a exceção, reservada para gente que ainda não tem nó
+  cadastrado. Isso evita o problema anterior de cada criação gerar um nó novo nomeado pelo
+  username em vez de reaproveitar o nome real já existente na árvore.
+- **Para quem estende esta tela (humano ou agente de IA):** qualquer fluxo novo de criação de
+  usuário (import em lote, endpoint novo, etc.) deve seguir a mesma regra — resolver a posição na
+  hierarquia (`level` + `parent_node_id`, ou reaproveitando um nó existente via `node_id`) como
+  parte do mesmo passo, nunca como etapa manual separada depois do fato.
+- **Reversibilidade:** alta — é uma convenção de uso da tela, não uma restrição de schema (o campo
+  `hierarchy_nodes` sempre aceitou ficar vazio, ex.: Administrador).
+
+- **Revisão (2026-07-21) — seletor manual de "Posição na hierarquia" removido; resolução
+  automática por cargo+superior+nome:** o `UserEditModal` (Usuários e o lápis da tela
+  Hierarquia) tinha um seletor de nó existente + botão "criar posição nova", que só listava nós
+  **sem usuário** — não dava pra trocar quem ocupa uma posição já vinculada (ex.: substituir o
+  titular de um cargo por outra pessoa), porque o nó antigo nunca aparecia na lista pra ninguém
+  além do próprio ocupante.
+  - **Escolha:** o formulário passou a pedir só **Nome completo**, **Cargo** e **Superior
+    imediato** — sempre visíveis, sem alternância de modo. `username` (campo técnico do Django,
+    login continua sendo por e-mail) virou literalmente o **nome completo da pessoa**, sem
+    transformação (sem slug, sem pontuação inserida) — o validador padrão
+    (`UnicodeUsernameValidator`, que rejeita espaço) foi trocado por um mínimo que só barra
+    número (migração `accounts.0005_alter_user_username`).
+  - **Resolução do nó, no backend (`UserAccountSerializer._sync_position`):**
+    - **Usuário sem posição ainda:** procura um `HierarchyNode` existente, **sem usuário**, com
+      `nome` batendo (case-insensitive) + mesmo cargo + mesmo superior; se achar, reaproveita
+      (continua o espírito da Decisão 11 original — evitar nó duplicado da hierarquia importada
+      de planilha); senão, cria um novo.
+    - **Usuário já tem posição:** editar cargo/superior **reparenta o mesmo nó** (nunca cria
+      outro) — e o `nome` do nó é sempre resincronizado com o `username` atual, a cada salvamento.
+  - **Como isso resolve a "troca de titular":** substituir quem ocupa uma posição (ex.: Alexandre
+    → Marcelo Rodrigues Cireli num Coordenador Regional) virou só **editar nome completo/login da
+    pessoa**, sem tocar em cargo/superior — não é mais uma operação de hierarquia.
+  - **Alternativa descartada:** manter o seletor de nó, só liberando nós ocupados por outros
+    (via alguma flag "trocar titular") — mais explícito, mas o usuário achou o fluxo de dois
+    passos (Cargo+Superior *ou* escolher nó existente) confuso demais no dia a dia; preferiu que
+    o sistema resolva isso sozinho.
+  - **Trade-off aceito:** duas pessoas homônimas (mesmo nome completo) no mesmo cargo/superior
+    fariam a segunda criação **reaproveitar por engano** a posição da primeira, se a primeira
+    ficasse sem usuário justo nessa janela — cenário improvável na escala desta ferramenta
+    (dezenas de posições, não milhares), aceito sem mitigação adicional.
+  - **Reversibilidade:** média — o campo `node_id` foi removido da API (`UserAccountSerializer`,
+    `UserAccountInput`); voltar ao seletor manual exigiria reintroduzir o campo e a tela, mas o
+    dado (`HierarchyNode`/`User.hierarchy_nodes`) não muda de formato.
+
+---
+
+## Decisão 12 — Vendas sem vendedor vigente entram em `DistributionBaseline` (não ficam de fora) e o total agrupado é sempre KG inteiro
+- **Contexto:** `DistributionBaselineService.rebuild()` reatribui cada venda do acumulado ao
+  vendedor **atual** da carteira do cliente (join por `client_code`). Até 2026-07, clientes do
+  acumulado sem entrada correspondente na carteira atual eram descartados (`continue`) — o volume
+  desses clientes desaparecia da base inteira, inclusive da soma que alimenta a sugestão de meta
+  do Gerente (P1).
+- **Escolha (confirmada pelo usuário, 2026-07):** essas vendas passam a gerar uma linha própria em
+  `DistributionBaseline` com `salesperson_name=NULL`, em vez de sumir.
+  - **P2-P4** (Vendedor/Supervisor/Coordenador) continuam sem enxergar esse volume — `SalesHistoryProvider.target_history`
+    filtra por `salesperson_name__in=[...]` explícitos, e `NULL` nunca casa com um nome específico
+    (correto: não há vendedor vigente pra atribuir individualmente).
+  - **P1** (sugestão para o Gerente) passa a incluir esse volume — `SalesHistoryProvider.group_history`
+    soma por `subgroup_name` sem filtrar por vendedor, então linhas `NULL` entram na conta. Isso é
+    o objetivo da mudança: o Gerente vê o volume real do grupo, mesmo a fração momentaneamente sem
+    vendedor titular na carteira.
+- **Arredondamento:** o valor agrupado (`total_quantity`) é sempre inteiro — regra confirmada pelo
+  usuário: `< 0,5` arredonda para baixo, `>= 0,5` arredonda para cima (`ROUND_HALF_UP`, aplicado em
+  `Decimal.quantize` antes de persistir). Não é o método do maior resto / Hamilton (P5, Decisão 7)
+  — aquele fecha um repasse hierárquico contra um total recebido; este só transforma a soma
+  histórica bruta em KG inteiro, sem nenhum total-alvo pra fechar contra.
+- **Schema:** `salesperson_name` passou a `null=True, blank=True`; `total_quantity` passou de
+  `decimal_places=6` para `decimal_places=0` (migração `0004_alter_distributionbaseline_salesperson_name_and_more`).
+- **Reversibilidade:** média — reverter exige popular `salesperson_name` de volta com um valor não
+  nulo (ou filtrar essas linhas na leitura) e desfazer a migração de `decimal_places`; os dados de
+  `AccumulatedSale`/`ClientPortfolioSnapshot` na origem não são afetados, então um novo `rebuild()`
+  reconstrói a partir deles em qualquer direção.
+
+---
+
+## Decisão 13 — Cobertura de férias (`FeristaCoverage`): redireciona histórico do ferista pro titular coberto, por mês
+- **Contexto:** ao curar `ExternalSalespersonMapping` (Decisão 9/O3) com dados reais, sobraram
+  nomes de `salesperson_name` no histórico sincronizado sem par exato entre os Vendedores da
+  hierarquia. O usuário identificou (2026-07-22): são vendedores "feristas" — cobrem férias de um
+  titular por um período, vendem em nome próprio no ERP, e não recebem meta própria. Sem vínculo
+  nenhum, esse volume simplesmente desaparecia do histórico por nó (`target_history`, usado em
+  P2-P4 e no contexto histórico da tela de distribuição) durante o mês da cobertura.
+- **Opção descartada:** dar ao ferista um nó `HierarchyNode` próprio (nível VENDEDOR). Esbarra na
+  validação de 5 níveis fixos (`HierarchyNode.clean()`/`HierarchyNodeSerializer.validate` — pai
+  sempre exatamente um nível acima) se ligado direto ao Coordenador Local, e mesmo ligado a um
+  Supervisor normal ele apareceria como alvo de distribuição de meta na tela de Supervisor →
+  Vendedor, o que é errado (ferista não recebe meta).
+- **Escolha (confirmada pelo usuário, 2026-07-22):** modelo novo `FeristaCoverage`
+  (`apps/hierarchy/models.py`) — **não é um nó da hierarquia**, só liga um `external_name` (nome
+  livre do ERP, igual `ExternalSalespersonMapping.external_name`) a um `covered_node` (o
+  `HierarchyNode` VENDEDOR titular, já existente na árvore) por `ano`/`mes`.
+  - **Granularidade mensal, não data exata:** `DistributionBaseline` (fonte do histórico) só
+    existe por mês — precisão de dia seria falsa, já que não dá pra fatiar um mês de venda entre
+    dois titulares.
+  - **Histórico vem de graça:** cada linha é um período; trocar a cobertura é só cadastrar uma
+    linha nova pro mês seguinte, nada é sobrescrito.
+  - `UniqueConstraint(external_name, ano, mes)`: um ferista só cobre uma pessoa por mês.
+    `covered_node.level` precisa ser VENDEDOR (validado em `clean()` e no serializer).
+- **Cálculo:** `SalesHistoryProvider.target_history` (`apps/sales_history/provider.py`) passou a,
+  mês a mês, somar ao histórico normal (via `ExternalSalespersonMapping`) o volume de
+  `DistributionBaseline` vendido pelo `external_name` do ferista **só nos meses em que ele cobriu
+  aquele nó** — fora disso, o nome do ferista não conta pra ninguém, igual qualquer nome sem
+  mapeamento. `group_history` (P1, soma por subgrupo sem filtrar vendedor) já contava esse volume
+  de qualquer forma, sem mudança.
+- **Interface:** função nova do Administrador — aba "Feristas" em Gestão
+  (`frontend/src/pages/admin/FeristaManager.tsx`), CRUD via
+  `GET/POST/PATCH/DELETE /api/hierarchy/ferista-coverages/` (`FeristaCoverageViewSet`, leitura para
+  qualquer autenticado, escrita só `IsAppAdmin` — mesmo padrão de catálogo/hierarquia). Também
+  registrado no Django Admin como caminho alternativo.
+- **Reversibilidade:** alta — `FeristaCoverage` não é referenciada por mais nada (diferente de
+  `HierarchyNode`/`ExternalSalespersonMapping`, protegidos por `on_delete=PROTECT` em cascata);
+  apagar uma linha errada não deixa órfão nenhum.
+- **Limitação conhecida e aceita (confirmada pelo usuário, 2026-07-22):** `DistributionBaselineService.rebuild()`
+  (Decisão 9/12) reatribui **todo** o histórico de um cliente ao dono ATUAL dele na carteira — não
+  só o mês da venda. Se a última sincronização caiu durante a cobertura, o ferista aparece como
+  dono atual dos clientes que está cobrindo, e o histórico inteiro desses clientes (não só o mês
+  coberto) cai sob o nome dele em `DistributionBaseline`. `FeristaCoverage` só redireciona o(s)
+  mês(es) explicitamente cadastrado(s) — os demais meses desse volume ficam **fora** de qualquer
+  histórico (nem titular, nem ferista) até uma sincronização futura, quando a carteira (já
+  revertida pro titular real) reatribui esses meses de volta sozinha, sem precisar de
+  `FeristaCoverage` nenhum. Decisão explícita: não tentar adivinhar o titular dos meses sem
+  cobertura cadastrada, mesmo quando o ferista só tem um titular coberto — só o que está
+  cadastrado mês a mês vale.
 
 ---
 

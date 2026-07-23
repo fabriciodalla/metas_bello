@@ -24,7 +24,8 @@ de um Postgres externo read-only isolado por uma camada anticorrupção. Detalhe
 ## Stack (resumo)
 - **Backend / núcleo:** Python — Django 5.2 LTS + Django REST Framework (monólito modular).
 - **Frontend:** React SPA (Vite + TypeScript). Lib de UI ainda não decidida.
-- **Admin (CRUD de hierarquia/catálogo):** Django Admin.
+- **Admin (CRUD de hierarquia/usuários/catálogo):** área própria na SPA (`/admin`), API `IsAppAdmin`
+  (Decisão 4, revisão). Django Admin segue só para os mapeamentos texto→entidade da Decisão 9.
 - **Banco da aplicação:** PostgreSQL. **Fonte de histórico:** Postgres externo (read-only, via adaptador).
 
 Justificativa e alternativas em [decisions.md](./decisions.md).

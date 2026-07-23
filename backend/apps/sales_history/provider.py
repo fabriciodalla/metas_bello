@@ -13,7 +13,7 @@ meses do calendário andando um a um).
 
 from apps.allocations.strategies import MonthlyQuantity
 from apps.catalog.models import ExternalProductMapping, ProductSubgroup
-from apps.hierarchy.models import ExternalSalespersonMapping, HierarchyNode
+from apps.hierarchy.models import ExternalSalespersonMapping, FeristaCoverage, HierarchyNode
 from apps.hierarchy.services import ScopeResolver
 
 from .models import DistributionBaseline
@@ -85,11 +85,22 @@ class SalesHistoryProvider:
         subgroup_id: int | None = None,
     ) -> list[MonthlyQuantity]:
         """Série mensal (P2-P4) para um alvo da distribuição: soma o histórico de todo vendedor
-        descendente desse nó (ele mesmo, se já for VENDEDOR), filtrado por grupo ou subgrupo
-        conforme a granularidade do repasse."""
-        vendedor_ids = HierarchyNode.objects.filter(
-            id__in=ScopeResolver.descendant_ids(hierarchy_node_id), level=HierarchyNode.Level.VENDEDOR
-        ).values_list("id", flat=True)
+        descendente desse nó (ele mesmo, se já for VENDEDOR). Suporta filtro por grupo OU
+        subgrupo, mas o peso da distribuição (P2-P4, Decisão 6) sempre usa `group_id` — nunca
+        `subgroup_id` — mesmo quando o repasse resultante é por subgrupo (P3/P4); histórico por
+        subgrupo é esparso demais pra pesar com confiança (ver docs/decisions.md, Decisão 6,
+        refinamento 2026-07-21).
+
+        Cobertura de férias (Decisão 13): um ferista (nome livre, sem `ExternalSalespersonMapping`
+        próprio) que cobriu um desses vendedores num mês específico tem o volume vendido naquele
+        mês redirecionado pra cá — fora do(s) mês(es) cobertos, o nome do ferista não conta pra
+        ninguém, igual qualquer nome sem mapeamento.
+        """
+        vendedor_ids = list(
+            HierarchyNode.objects.filter(
+                id__in=ScopeResolver.descendant_ids(hierarchy_node_id), level=HierarchyNode.Level.VENDEDOR
+            ).values_list("id", flat=True)
+        )
         salesperson_names = list(
             ExternalSalespersonMapping.objects.filter(hierarchy_node_id__in=vendedor_ids).values_list(
                 "external_name", flat=True
@@ -97,10 +108,41 @@ class SalesHistoryProvider:
         )
 
         months = _consecutive_months(last_month, period_months)
-        queryset = DistributionBaseline.objects.filter(salesperson_name__in=salesperson_names)
-
         external_codes = _external_codes_for(group_id=group_id, subgroup_id=subgroup_id)
+
+        queryset = DistributionBaseline.objects.filter(salesperson_name__in=salesperson_names)
         if external_codes is not None:
             queryset = queryset.filter(subgroup_name__in=external_codes)
+        history = _aggregate_by_month(queryset, months)
 
-        return _aggregate_by_month(queryset, months)
+        month_set = set(months)
+        coverage = [
+            (external_name, ano, mes)
+            for external_name, ano, mes in FeristaCoverage.objects.filter(
+                covered_node_id__in=vendedor_ids
+            ).values_list("external_name", "ano", "mes")
+            if (ano, mes) in month_set
+        ]
+        if not coverage:
+            return history
+
+        coverage_queryset = DistributionBaseline.objects.filter(
+            salesperson_name__in={external_name for external_name, _, _ in coverage}
+        )
+        if external_codes is not None:
+            coverage_queryset = coverage_queryset.filter(subgroup_name__in=external_codes)
+
+        totals_by_name_month: dict[tuple[str, int, int], float] = {}
+        for name, ano, mes, total in coverage_queryset.values_list(
+            "salesperson_name", "ano", "mes", "total_quantity"
+        ):
+            key = (name, ano, mes)
+            totals_by_name_month[key] = totals_by_name_month.get(key, 0.0) + float(total)
+
+        by_month = {(point.ano, point.mes): point.quantity_kg for point in history}
+        for external_name, ano, mes in coverage:
+            by_month[(ano, mes)] = by_month.get((ano, mes), 0.0) + totals_by_name_month.get(
+                (external_name, ano, mes), 0.0
+            )
+
+        return [MonthlyQuantity(ano=ano, mes=mes, quantity_kg=by_month[(ano, mes)]) for ano, mes in months]

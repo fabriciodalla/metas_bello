@@ -24,7 +24,13 @@ class HierarchyClosureService:
         for node_id in parent_by_id:
             depth = 0
             current_id = node_id
-            while current_id is not None:
+            # `seen` também cobre dado corrompido (ex.: um nó apontando pra si mesmo como pai,
+            # editado fora da validação — Django Admin não tinha essa checagem até este commit):
+            # sem isso, subir a cadeia de pais entra em loop infinito e trava a request inteira,
+            # porque este rebuild roda a cada save de QUALQUER HierarchyNode (signals.py).
+            seen: set[int] = set()
+            while current_id is not None and current_id not in seen:
+                seen.add(current_id)
                 rows.append(HierarchyClosure(ancestor_id=current_id, descendant_id=node_id, depth=depth))
                 current_id = parent_by_id.get(current_id)
                 depth += 1

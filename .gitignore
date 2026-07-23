@@ -9,3 +9,5 @@ frontend/dist/
 *.tsbuildinfo
 .vscode/
 .idea/
+.claude/
+usuario e senha.xlsx

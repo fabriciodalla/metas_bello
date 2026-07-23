@@ -31,7 +31,9 @@ aprovada não significa fórmula travada: seguem plugáveis por design, caso alg
 > resolvida (O3, Decisão 9):** `SalesHistoryProvider` (`apps/sales_history/provider.py`) resolve
 > `DistributionBaseline` para as séries que essas classes esperam, via `ExternalProductMapping`/
 > `ExternalSalespersonMapping`. Falta só popular esses mapeamentos com dados reais e ligar um
-> endpoint que chame o registry em modo `AUTO`.
+> endpoint que chame o registry em modo `AUTO`. **Refinamento de P2-P4 (Decisão 6, 2026-07-21):** o
+> peso de cada alvo usa sempre o histórico do **grupo inteiro**, nunca de subgrupo — quem ligar o
+> endpoint `AUTO` deve chamar `target_history(..., group_id=X, subgroup_id=None)`.
 >
 > **P5 (Decisão 7, ver [decisions.md](./decisions.md#decisão-7--método-de-arredondamento-p5-maior-resto--hamilton)):**
 > método do maior resto / Hamilton — arredonda toda proporção para baixo, depois distribui o KG
@@ -77,7 +79,21 @@ faltava para ligar isso às fórmulas de P1-P4, está resolvido (Decisão 9): `E
 `SeasonalTrendSuggestionStrategy`/`SeasonalTrendDistributionStrategy` diretamente. **O que resta
 não é mais técnico:** os dois mapeamentos precisam ser **populados com dados reais** (curadoria
 manual — Django Admin —, sem casamento automático por nome, de propósito) antes de valerem em
-produção; hoje só existem os testes com dados sintéticos.
+produção.
+>
+> **Estado real dos dados (2026-07-22):** `ExternalProductMapping` já está populado (101
+> registros). `ExternalSalespersonMapping` está **vazio (0 registros)** — os 86 nós VENDEDOR da
+> hierarquia real não têm nenhum vínculo com os `salesperson_name` do histórico sincronizado. É
+> por isso que `target_history` (histórico por nó — Regional/Local/Supervisor/Vendedor, usado
+> tanto em P2-P4 quanto no contexto histórico da tela de distribuição) sempre volta vazio hoje: o
+> mecanismo de "subir" o histórico do Vendedor até qualquer ancestral via a hierarquia (closure
+> table) já está implementado e testado — falta só o vínculo Vendedor↔`salesperson_name` para ele
+> ter o que somar. Checagem de nome exato entre os 86 nós e os 99 `salesperson_name` distintos do
+> histórico encontrou **74 pares idênticos** — os outros 12 nós da hierarquia e 25 nomes do
+> histórico sem par exato precisam de olho humano (variação de grafia, gente que saiu, gente nova
+> ainda sem nó). Curadoria pendente — não é decisão de design, é trabalho operacional único. Parte
+> desses nomes sem par são **feristas** (cobrem férias, não têm nó próprio) — ver Decisão 13 em
+> [decisions.md](./decisions.md#decisão-13--cobertura-de-férias-feristacoverage-redireciona-histórico-do-ferista-pro-titular-coberto-por-mês).
 
 ### O4 — Hierarquia × metas em andamento (RESOLVIDA)
 Quando o Administrador desativa ou reparenta um nó da hierarquia com o ciclo aberto, a meta que
@@ -108,10 +124,19 @@ resolvidas e implementadas. O que resta não é mais decisão de design, é trab
 | P1–P5 (fórmulas) | Resolvidas e implementadas (Decisões 6 e 7) | Ligação ao histórico real (O3) já existe; falta só popular os mapeamentos com dados reais |
 | H1–H4 (hipóteses) | Todas confirmadas | H2 (12 meses) e H4 (Decisão 8) já implementadas |
 | O1 (granularidade) | Resolvida — subgrupo | Nenhum |
-| O3 (Postgres externo) | Resolvida (Decisão 9) | Popular `ExternalProductMapping`/`ExternalSalespersonMapping` com dados reais |
+| O3 (Postgres externo) | Resolvida (Decisão 9) | `ExternalProductMapping` populado (101). `ExternalSalespersonMapping` **vazio** — curadoria pendente (ver detalhe acima) |
 | O4 (reatribuição) | Resolvida (Decisão 10) | Nenhum |
 | O5 (User↔Node) | Resolvida — 1:N (Decisão 10) | Nenhum |
 
-Frente ainda em aberto, fora do escopo das 5 pendências/4 hipóteses/5 open questions originais: um
-endpoint/UI que use as estratégias `AUTO` de P1-P4 para gerar sugestão de fato — hoje só o modo
-manual está exposto na API.
+Frente que já foi aberta, fora do escopo das 5 pendências/4 hipóteses/5 open questions originais:
+contexto histórico por alvo na tela de distribuição (Gerente→Regional e Regional→Local — decisão do
+usuário, 2026-07-22), servido por `GET /allocations/{id}/distribution-context/`
+(`DistributionContextService`, `backend/apps/allocations/services.py`). Tanto Gerente→Regional
+quanto Regional→Local (P2) já ligam a estratégia `AUTO` pra pré-preencher uma meta sugerida,
+fechando exato com o pai (extensão do modo `AUTO` para GERENTE também pedida pelo usuário em
+2026-07-22, ver refinamento na Decisão 6). Guia pra quando mais níveis usarem isso: P2-P4 (e agora
+Gerente→Regional também) pesam sempre pelo histórico do grupo inteiro do alvo, nunca por subgrupo
+(ver refinamento de 2026-07-21 na Decisão 6 em
+[decisions.md](./decisions.md#decisão-6--fórmula-de-cálculo-para-p1-p4-tendência--sazonalidade-sobre-12-meses)).
+**Sem efeito prático até a curadoria de `ExternalSalespersonMapping` (ver O3 acima)** — hoje a API
+responde, mas com histórico/sugestão vazios pra todo mundo.

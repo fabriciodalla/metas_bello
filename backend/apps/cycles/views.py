@@ -11,13 +11,13 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 from apps.accounts.permissions import IsAppAdmin
 from apps.allocations.models import GoalAllocation
 from apps.allocations.serializers import AllocationOverviewSerializer
-from apps.allocations.services import CycleCompletenessChecker
+from apps.allocations.services import CycleCompletenessChecker, VendedorAllocationReportService
 
 from .models import Cycle
 from .serializers import CycleSerializer, StuckAllocationSerializer
 from .services import CloseCycleService, CycleNotCompleteError
 
-ADMIN_ONLY_ACTIONS = ("distribution_overview", "export")
+ADMIN_ONLY_ACTIONS = ("distribution_overview", "export", "vendedor_report")
 
 
 class CycleViewSet(ReadOnlyModelViewSet):
@@ -57,61 +57,69 @@ class CycleViewSet(ReadOnlyModelViewSet):
         cycle = self.get_object()
         allocations = (
             GoalAllocation.objects.filter(cycle=cycle)
-            .select_related("owner_node", "criado_por")
+            .select_related("owner_node__parent", "criado_por", "group", "subgroup__group")
             .prefetch_related("owner_node__users")
             .order_by("owner_node__level", "owner_node__nome")
         )
         return Response(AllocationOverviewSerializer(allocations, many=True).data)
 
+    @action(detail=True, methods=["get"], url_path="vendedor-report")
+    def vendedor_report(self, request, pk=None):
+        """Meta no nível Vendedor (folha, SUBGROUP — O1), achatada com o caminho até Coordenador
+        Regional — usada pela tela de Metas; mesma fonte de dados do `export` (CSV) abaixo."""
+        cycle = self.get_object()
+        rows = VendedorAllocationReportService.rows_for_cycle(cycle)
+        return Response(
+            [
+                {
+                    "regional": row.regional_nome,
+                    "local": row.local_nome,
+                    "supervisor": row.supervisor_nome,
+                    "vendedor": row.vendedor_nome,
+                    "grupo": row.grupo_nome,
+                    "subgrupo": row.subgrupo_nome,
+                    "quantity_kg": row.quantity_kg,
+                    "status": row.status,
+                }
+                for row in rows
+            ]
+        )
+
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):
-        """Baixa a árvore inteira de alocações do ciclo (todos os níveis) em CSV."""
+        """Baixa em CSV a meta no nível Vendedor do ciclo inteiro — mesma linha por linha que a
+        tela de Metas (`VendedorAllocationReportService`)."""
         cycle = self.get_object()
-        allocations = (
-            GoalAllocation.objects.filter(cycle=cycle)
-            .select_related(
-                "owner_node", "parent_allocation__owner_node", "group", "subgroup", "product", "criado_por"
-            )
-            .order_by("owner_node__level", "owner_node__nome")
-        )
+        rows = VendedorAllocationReportService.rows_for_cycle(cycle)
+        ciclo_label = f"{cycle.mes:02d}/{cycle.ano}"
 
         buffer = io.StringIO()
         writer = csv.writer(buffer)
         writer.writerow(
             [
-                "alocacao_id",
-                "ciclo",
-                "no_nivel",
-                "no_nome",
-                "alocacao_pai_id",
-                "no_pai_nome",
-                "granularidade",
+                "coordenador_regional",
+                "coordenador_local",
+                "supervisor",
+                "vendedor",
                 "grupo",
                 "subgrupo",
-                "produto",
-                "quantidade_kg",
-                "distribuido",
-                "criado_por",
-                "criado_em",
+                "meta_kg",
+                "ciclo",
+                "status",
             ]
         )
-        for allocation in allocations:
+        for row in rows:
             writer.writerow(
                 [
-                    allocation.id,
-                    f"{cycle.mes:02d}/{cycle.ano}",
-                    allocation.owner_node.level,
-                    allocation.owner_node.nome,
-                    allocation.parent_allocation_id or "",
-                    allocation.parent_allocation.owner_node.nome if allocation.parent_allocation_id else "",
-                    allocation.granularity,
-                    allocation.group.nome if allocation.group_id else "",
-                    allocation.subgroup.nome if allocation.subgroup_id else "",
-                    allocation.product.nome if allocation.product_id else "",
-                    allocation.quantity_kg,
-                    "sim" if allocation.distributed else "não",
-                    allocation.criado_por.username,
-                    allocation.created_at.isoformat(),
+                    row.regional_nome,
+                    row.local_nome,
+                    row.supervisor_nome,
+                    row.vendedor_nome,
+                    row.grupo_nome,
+                    row.subgrupo_nome,
+                    row.quantity_kg,
+                    ciclo_label,
+                    row.status,
                 ]
             )
 

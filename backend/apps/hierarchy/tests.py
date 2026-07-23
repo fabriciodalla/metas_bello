@@ -1,7 +1,8 @@
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from .models import ExternalSalespersonMapping, HierarchyClosure, HierarchyNode
+from .models import ExternalSalespersonMapping, FeristaCoverage, HierarchyClosure, HierarchyNode
 
 
 class HierarchyNodeTests(TestCase):
@@ -85,3 +86,45 @@ class ExternalSalespersonMappingTests(TestCase):
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 ExternalSalespersonMapping.objects.create(external_name="FULANO", hierarchy_node=vendedor_b)
+
+
+class FeristaCoverageTests(TestCase):
+    """Decisão 13 (2026-07-22): ferista não tem nó/mapeamento próprio — só um vínculo por mês ao
+    vendedor titular que ele cobriu."""
+
+    def setUp(self):
+        self.vendedor = HierarchyNode.objects.create(level=HierarchyNode.Level.VENDEDOR, nome="Titular")
+
+    def test_links_external_name_to_covered_node_and_month(self):
+        coverage = FeristaCoverage.objects.create(
+            external_name="FERISTA DA SILVA", covered_node=self.vendedor, ano=2026, mes=3
+        )
+
+        self.assertEqual(coverage.covered_node, self.vendedor)
+
+    def test_rejects_covered_node_that_is_not_vendedor(self):
+        supervisor = HierarchyNode.objects.create(level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor")
+        coverage = FeristaCoverage(external_name="FERISTA", covered_node=supervisor, ano=2026, mes=3)
+
+        with self.assertRaises(ValidationError):
+            coverage.full_clean()
+
+    def test_same_ferista_cannot_cover_two_people_in_the_same_month(self):
+        other_vendedor = HierarchyNode.objects.create(level=HierarchyNode.Level.VENDEDOR, nome="Outro")
+        FeristaCoverage.objects.create(external_name="FERISTA", covered_node=self.vendedor, ano=2026, mes=3)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                FeristaCoverage.objects.create(
+                    external_name="FERISTA", covered_node=other_vendedor, ano=2026, mes=3
+                )
+
+    def test_same_ferista_can_cover_different_people_in_different_months(self):
+        other_vendedor = HierarchyNode.objects.create(level=HierarchyNode.Level.VENDEDOR, nome="Outro")
+        FeristaCoverage.objects.create(external_name="FERISTA", covered_node=self.vendedor, ano=2026, mes=3)
+
+        coverage_abril = FeristaCoverage.objects.create(
+            external_name="FERISTA", covered_node=other_vendedor, ano=2026, mes=4
+        )
+
+        self.assertEqual(coverage_abril.covered_node, other_vendedor)

@@ -82,7 +82,25 @@ def _linear_trend(values: list[float]) -> tuple[float, float]:
     return intercept, slope
 
 
-def _seasonal_trend_forecast(history: list[MonthlyQuantity]) -> float:
+@dataclass(frozen=True)
+class SeasonalTrendBreakdown:
+    """Componentes auditáveis por trás de `_seasonal_trend_forecast`, para exibir ao usuário o
+    "porquê" da sugestão (não só o número final) — ver docs/decisions.md, Decisão 6.
+
+    `has_gap` sinaliza quando algum mês da janela não teve nenhuma linha de histórico real
+    (entrou como quantity_kg=0 via SalesHistoryProvider) — a projeção roda normalmente, mas o
+    resultado é menos confiável. Não é a mesma coisa que "índice sazonal de uma observação só"
+    (limitação estrutural do método com 12 meses, sempre presente, ver docstring do módulo) — é
+    especificamente dado FALTANDO, não dado presente mas potencialmente ruidoso.
+    """
+
+    trend_kg: float
+    seasonal_index: float
+    forecast_kg: float
+    has_gap: bool
+
+
+def _seasonal_trend_breakdown(history: list[MonthlyQuantity]) -> SeasonalTrendBreakdown:
     """Decomposição clássica multiplicativa: tendência linear × índice sazonal do mês, projetando
     um mês à frente do fim do histórico.
 
@@ -122,7 +140,32 @@ def _seasonal_trend_forecast(history: list[MonthlyQuantity]) -> float:
 
     trend_forecast = trend_at(len(history) + 1)
     seasonal_factor = seasonal_index_by_month.get(next_month, 1.0)
-    return max(trend_forecast * seasonal_factor, 0.0)
+    forecast_kg = max(trend_forecast * seasonal_factor, 0.0)
+
+    return SeasonalTrendBreakdown(
+        trend_kg=max(trend_forecast, 0.0),
+        seasonal_index=seasonal_factor,
+        forecast_kg=forecast_kg,
+        has_gap=any(entry.quantity_kg == 0 for entry in history),
+    )
+
+
+def _seasonal_trend_forecast(history: list[MonthlyQuantity]) -> float:
+    """Só o valor final — mantido para P2-P4 (`SeasonalTrendDistributionStrategy`), que usam a
+    projeção como peso relativo e não precisam do breakdown."""
+    return _seasonal_trend_breakdown(history).forecast_kg
+
+
+@dataclass(frozen=True)
+class GroupSuggestion:
+    """Sugestão P1 completa para um grupo, com os componentes que a tornam auditável na UI."""
+
+    trend_kg: int
+    seasonal_index: float
+    suggested_kg: int
+    has_gap: bool
+    history: list[MonthlyQuantity]
+    same_month_last_year_kg: float | None
 
 
 class SeasonalTrendSuggestionStrategy(SuggestionStrategy):
@@ -130,18 +173,34 @@ class SeasonalTrendSuggestionStrategy(SuggestionStrategy):
     sobre uma janela de 12 meses, projetando o próximo mês.
 
     Consome uma série já resolvida por `ProductGroup.id` (mais antigo primeiro) — a extração a
-    partir de `DistributionBaseline` (que só tem `subgroup_name` em texto) segue bloqueada até O3
-    (mapeamento subgroup_name -> ProductGroup) ser resolvida; ver docs/open-questions.md.
+    partir de `DistributionBaseline` já está ligada via `SalesHistoryProvider.group_history`
+    (O3/Decisão 9 resolvidas; ver docs/open-questions.md).
     """
 
     def __init__(self, history_by_group: dict[int, list[MonthlyQuantity]]):
         self._history_by_group = history_by_group
 
     def suggest(self, group_ids: list[int], period_months: int) -> dict[int, int]:
+        return {
+            group_id: breakdown.suggested_kg
+            for group_id, breakdown in self.suggest_detailed(group_ids, period_months).items()
+        }
+
+    def suggest_detailed(self, group_ids: list[int], period_months: int) -> dict[int, GroupSuggestion]:
+        """Mesma projeção de `suggest()`, mas devolvendo os componentes auditáveis (P1) em vez de
+        só o valor final — consumido pelo endpoint de sugestão exibido ao Gerente."""
         result = {}
         for group_id in group_ids:
             history = self._history_by_group.get(group_id, [])[-period_months:]
-            result[group_id] = round(_seasonal_trend_forecast(history))
+            breakdown = _seasonal_trend_breakdown(history)
+            result[group_id] = GroupSuggestion(
+                trend_kg=round(breakdown.trend_kg),
+                seasonal_index=round(breakdown.seasonal_index, 4),
+                suggested_kg=round(breakdown.forecast_kg),
+                has_gap=breakdown.has_gap,
+                history=history,
+                same_month_last_year_kg=history[0].quantity_kg if len(history) == period_months else None,
+            )
         return result
 
 
@@ -197,6 +256,11 @@ class SeasonalTrendDistributionStrategy(DistributionStrategy):
     Consome uma série já resolvida por alvo (`HierarchyNode.id`) — a extração a partir de
     `DistributionBaseline` (que só tem `salesperson_name` em texto) segue bloqueada até O3/O5
     (mapeamento salesperson_name/nk_vendedor -> HierarchyNode) ser resolvida.
+
+    `history_by_target` deve sempre vir filtrado por GRUPO inteiro (nunca por subgrupo), mesmo
+    quando o repasse resultante é decomposto em subgrupo (P3/P4) — ver docs/decisions.md, Decisão
+    6, refinamento 2026-07-21. Quem monta esse dict deve chamar
+    `SalesHistoryProvider.target_history(..., group_id=X, subgroup_id=None)`.
     """
 
     def __init__(self, history_by_target: dict[int, list[MonthlyQuantity]], rounding_policy: RoundingPolicy):
@@ -250,9 +314,10 @@ def _build_default_registry() -> DistributionStrategyRegistry:
             "MANUAL",
             lambda quantities_by_target: ManualDistributionStrategy(quantities_by_target),
         )
-    # AUTO cobre só P2 (Regional->Local), P3 (quebra Local->Supervisor) e P4 (Supervisor->Vendedor)
-    # — Gerente->Regional não é uma das pendências nomeadas em open-questions.md, então não tem AUTO.
-    for level in ("REGIONAL", "LOCAL", "SUPERVISOR"):
+    # AUTO cobre P2 (Regional->Local), P3 (quebra Local->Supervisor), P4 (Supervisor->Vendedor) e,
+    # por extensão pedida pelo usuário (2026-07-22, ver Decisão 6 em docs/decisions.md), também
+    # Gerente->Regional — mesma fórmula (tendência+sazonalidade), sem inventar nada novo.
+    for level in ("GERENTE", "REGIONAL", "LOCAL", "SUPERVISOR"):
         registry.register(
             level,
             "AUTO",

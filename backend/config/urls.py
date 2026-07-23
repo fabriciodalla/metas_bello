@@ -19,18 +19,21 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from apps.accounts.views import UserAccountViewSet
 from apps.allocations.views import GoalAllocationViewSet
 from apps.catalog.views import ProductGroupViewSet, ProductSubgroupViewSet, ProductViewSet
 from apps.cycles.views import CycleViewSet
-from apps.hierarchy.views import HierarchyNodeViewSet
+from apps.hierarchy.views import FeristaCoverageViewSet, HierarchyNodeViewSet
 
 router = DefaultRouter()
 router.register("hierarchy/nodes", HierarchyNodeViewSet, basename="hierarchy-node")
+router.register("hierarchy/ferista-coverages", FeristaCoverageViewSet, basename="ferista-coverage")
 router.register("cycles", CycleViewSet, basename="cycle")
 router.register("allocations", GoalAllocationViewSet, basename="goal-allocation")
 router.register("catalog/groups", ProductGroupViewSet, basename="product-group")
 router.register("catalog/subgroups", ProductSubgroupViewSet, basename="product-subgroup")
 router.register("catalog/products", ProductViewSet, basename="product")
+router.register("accounts/users", UserAccountViewSet, basename="user-account")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

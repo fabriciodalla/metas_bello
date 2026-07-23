@@ -93,6 +93,24 @@ concluída.
 - Regras de negócio (fechamento exato, isolamento de escopo) pertencem a **services de domínio**,
   não a views/serializers — mantém o monólito modular descrito em
   [docs/architecture.md](docs/architecture.md).
+- Título de página vive só no cabeçalho (`Topbar`, `frontend/src/components/ui/Topbar.tsx`), nunca
+  duplicado dentro do corpo da página. Ao criar uma tela nova em `frontend/src/pages/`, **não**
+  renderize `<h1>`/subtítulo próprio (nada de um bloco tipo `dp-header`/`dp-title`/`dp-subtitle`
+  dentro do JSX da página) — em vez disso, adicione uma entrada no mapa de rótulos certo dentro de
+  `Topbar.tsx` (`ADMIN_LABELS`, `NIVEL_LABELS`, `ACOMPANHAMENTO_LABELS` ou `FINALIZACAO_LABELS`,
+  conforme o grupo de rotas) com o texto do título; se o rótulo variar por nível de quem está
+  logado (ex.: `distribuirMetasLabel` em `frontend/src/components/distribuicaoLabels.ts`), resolva
+  isso dentro do próprio `Topbar`/helper compartilhado, não copiando a lógica pra dentro da página.
+  A página em si começa direto pelo conteúdo (filtros, cards, tabela). Exceção: rotas públicas sem
+  `Topbar` (login, esqueci senha, redefinir senha) — lá o título é a única fonte, então fica na
+  própria página.
+- Todo usuário criado (tela Gestão → Usuários / `UserAccountSerializer`) já nasce vinculado à sua
+  posição real na hierarquia no mesmo ato de criação — nunca deixe um usuário "solto" pra vincular
+  depois (exceto Administrador puro, sem posição na cascata). Não existe mais seletor manual de
+  nó: o formulário só pede Nome completo + Cargo + Superior imediato, e
+  `UserAccountSerializer._sync_position` resolve o `HierarchyNode` sozinho (reaproveita um nó
+  livre com nome/cargo/superior batendo, ou cria um novo) — ver Decisão 11 (revisão 2026-07-21)
+  em [docs/decisions.md](docs/decisions.md).
 
 ## Nunca
 
@@ -104,3 +122,26 @@ concluída.
   (Decisão 9); não existe mais Fake Provider no código.
 - Nunca permita que uma alocação (`GoalAllocation`) seja persistida sem fechar 100% com a
   alocação-pai — é a invariante central do produto.
+- Nunca ajuste layout/estilo da tela de login (`frontend/src/pages/LoginPage.tsx` e as classes
+  `.login-*` em `frontend/src/index.css`) por conta própria — o visual (paleta, alinhamento do
+  bloco de marca com o card, etc.) já foi validado e fechado com o usuário. Só mexa nela se o
+  pedido mencionar explicitamente a tela de login.
+- Nunca ajuste layout/estilo da tela Meta Gerencial (`frontend/src/pages/MetaGerencialPage.tsx` e
+  as classes `.mg-*` em `frontend/src/index.css`) por conta própria — cards de sugestão (métricas
+  vs. ano passado / vs. últimos 3 meses, painel expansível com histórico de 12 meses, KPIs do
+  topo, total no rodapé) já foram iterados e fechados com o usuário. Só mexa nela se o pedido
+  mencionar explicitamente a tela Meta Gerencial.
+- Por padrão, não altere dados de hierarquia (nós, nomes, papéis, vínculo pessoa↔posição) nem de
+  catálogo (grupos/subgrupos de produtos) por conta própria — nem via `seed_demo`, Django shell,
+  fixture, migração de dados ou update direto no banco. Essas entidades devem mudar pela mão do
+  próprio usuário, interagindo com a ferramenta (tela Gestão → Hierarquia/Usuários/Catálogo). Se o
+  usuário pedir uma correção (nome errado, pessoa errada num nó, grupo/subgrupo incorreto),
+  **oriente como fazer pela UI** (qual tela, qual botão) em vez de executar a mudança você mesmo.
+  **Exceção**: se o usuário exigir explicitamente que você mesmo execute a mudança (não só
+  descrever o problema, mas instruir a fazer), pode executar — mas confirme antes exatamente o que
+  vai mudar. Atenção pro caso de exclusão: a API não expõe exclusão de nó/usuário (só
+  `ativo=False`/`is_active=False`, de propósito — `parent` é `on_delete=PROTECT`), então uma
+  exclusão de verdade exige ir direto no banco/shell e pode falhar ou quebrar histórico se o
+  registro ainda for referenciado por outro nó-filho ou por alocações já feitas — avise o usuário
+  desse risco antes de agir, e prefira desativar em vez de apagar sempre que o resultado prático
+  for o mesmo (some da árvore/lista ativa, sem perder o histórico).

@@ -73,15 +73,21 @@ class DistributionBaseline(models.Model):
 
     Reconstruída inteira por `DistributionBaselineService.rebuild()` a partir de `AccumulatedSale`
     + `ClientPortfolioSnapshot` já sincronizados — não consulta o Postgres externo diretamente.
-    Clientes do acumulado sem entrada correspondente na carteira atual ficam de fora (não há
-    vendedor vigente para atribuir esse histórico).
+    Clientes do acumulado sem entrada correspondente na carteira atual entram com
+    `salesperson_name=None` (em vez de ficar de fora): não há vendedor vigente para atribuir esse
+    histórico a nível de Vendedor/Supervisor (P2-P4), mas o volume continua real e deve contar na
+    sugestão de meta do Gerente (P1, `SalesHistoryProvider.group_history`, que soma por subgrupo
+    sem filtrar por vendedor).
+
+    `total_quantity` é sempre inteiro (KG, sem casas decimais — mesma convenção do resto do
+    produto): a soma do agrupamento é arredondada (>= 0,5 sobe, < 0,5 desce) antes de persistir.
     """
 
     ano = models.PositiveIntegerField()
     mes = models.PositiveSmallIntegerField()
-    salesperson_name = models.CharField(max_length=150)
+    salesperson_name = models.CharField(max_length=150, null=True, blank=True)
     subgroup_name = models.CharField(max_length=60)
-    total_quantity = models.DecimalField(max_digits=18, decimal_places=6)
+    total_quantity = models.DecimalField(max_digits=18, decimal_places=0)
 
     computed_at = models.DateTimeField(auto_now=True)
 

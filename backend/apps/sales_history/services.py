@@ -1,6 +1,6 @@
 import datetime
 from collections import defaultdict
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import connections, transaction
 
@@ -85,7 +85,10 @@ class DistributionBaselineService:
     Reatribui cada linha do acumulado ao vendedor ATUAL da carteira do cliente (join por
     `client_code`, comum às duas tabelas) — não importa quem historicamente vendeu, importa
     quanto o cliente comprou, e esse total conta para quem hoje é responsável por ele. Clientes do
-    acumulado sem entrada na carteira atual ficam de fora (sem vendedor vigente pra atribuir).
+    acumulado sem entrada na carteira atual entram com `salesperson_name=None` em vez de ficar de
+    fora: sem vendedor vigente não dá pra atribuir a um Vendedor/Supervisor (P2-P4), mas o volume
+    ainda é real e deve contar na sugestão de meta do Gerente (P1, que soma por subgrupo sem
+    filtrar por vendedor — ver `SalesHistoryProvider.group_history`).
     """
 
     @staticmethod
@@ -95,14 +98,12 @@ class DistributionBaselineService:
             ClientPortfolioSnapshot.objects.values_list("client_code", "salesperson_name")
         )
 
-        totals: dict[tuple[int, int, str, str], Decimal] = defaultdict(Decimal)
+        totals: dict[tuple[int, int, str | None, str], Decimal] = defaultdict(Decimal)
         rows = AccumulatedSale.objects.values_list(
             "sale_date", "client_code", "subgroup_name", "total_quantity"
         )
         for sale_date, client_code, subgroup_name, quantity in rows:
             salesperson_name = current_salesperson_by_client.get(client_code)
-            if salesperson_name is None:
-                continue
             key = (sale_date.year, sale_date.month, salesperson_name, subgroup_name)
             totals[key] += quantity
 
@@ -113,7 +114,10 @@ class DistributionBaselineService:
                 mes=mes,
                 salesperson_name=salesperson_name,
                 subgroup_name=subgroup_name,
-                total_quantity=total_quantity,
+                # Regra de arredondamento confirmada pelo usuário (2026-07): >= 0,5 sobe, < 0,5
+                # desce — não é o método do maior resto (P5/Decisão 7), que serve pra fechar o
+                # repasse hierárquico; aqui é só a base histórica virando KG inteiro.
+                total_quantity=total_quantity.quantize(Decimal("1"), rounding=ROUND_HALF_UP),
             )
             for (ano, mes, salesperson_name, subgroup_name), total_quantity in totals.items()
         )

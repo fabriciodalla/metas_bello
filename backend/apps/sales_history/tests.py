@@ -160,7 +160,9 @@ class DistributionBaselineServiceTests(TestCase):
             total_quantity=Decimal("20"),
             total_value=Decimal("200"),
         )
-        # Cliente C: tem venda no acumulado, mas não está na carteira atual — deve ficar de fora.
+        # Cliente C: tem venda no acumulado, mas não está na carteira atual — vira uma linha
+        # separada com salesperson_name=None (conta pra base do Gerente, mas não pra de ninguém
+        # em específico).
         AccumulatedSale.objects.create(
             nk_supervisor="B.F.1",
             nk_vendedor="B.F.FORA",
@@ -182,14 +184,15 @@ class DistributionBaselineServiceTests(TestCase):
     def test_rebuild_reassigns_history_to_current_portfolio_owner(self):
         count = DistributionBaselineService.rebuild()
 
-        self.assertEqual(count, 2)
+        self.assertEqual(count, 3)
         self.assertFalse(DistributionBaseline.objects.filter(salesperson_name="Vendedor Antigo").exists())
         self.assertFalse(
             DistributionBaseline.objects.filter(salesperson_name="Vendedor Fora Da Carteira").exists()
         )
 
-        linguica = DistributionBaseline.objects.get(subgroup_name="Linguica")
-        self.assertEqual(linguica.salesperson_name, "Vendedor Novo")
+        linguica = DistributionBaseline.objects.get(
+            subgroup_name="Linguica", salesperson_name="Vendedor Novo"
+        )
         self.assertEqual(linguica.ano, 2026)
         self.assertEqual(linguica.mes, 1)
         self.assertEqual(linguica.total_quantity, Decimal("30"))  # 10 (cliente A) + 20 (cliente B)
@@ -198,13 +201,52 @@ class DistributionBaselineServiceTests(TestCase):
         self.assertEqual(salsicha.salesperson_name, "Vendedor Novo")
         self.assertEqual(salsicha.total_quantity, Decimal("5"))
 
+        # Cliente C (fora da carteira atual) some como vendedor específico, mas continua contando
+        # como linha própria (salesperson_name=None) — é o que P1 (Gerente) precisa enxergar.
+        orfao = DistributionBaseline.objects.get(subgroup_name="Linguica", salesperson_name__isnull=True)
+        self.assertEqual(orfao.total_quantity, Decimal("999"))
+
     def test_rebuild_is_idempotent(self):
         DistributionBaselineService.rebuild()
         DistributionBaselineService.rebuild()
 
-        self.assertEqual(DistributionBaseline.objects.count(), 2)
-        linguica = DistributionBaseline.objects.get(subgroup_name="Linguica")
+        self.assertEqual(DistributionBaseline.objects.count(), 3)
+        linguica = DistributionBaseline.objects.get(
+            subgroup_name="Linguica", salesperson_name="Vendedor Novo"
+        )
         self.assertEqual(linguica.total_quantity, Decimal("30"))
+
+    def test_rebuild_rounds_grouped_total_half_up_to_integer_kg(self):
+        AccumulatedSale.objects.all().delete()
+        AccumulatedSale.objects.create(
+            nk_supervisor="B.F.1",
+            nk_vendedor="B.F.NOVO",
+            salesperson_name="Vendedor Novo",
+            client_code=1,
+            sale_date=date(2026, 2, 1),
+            subgroup_name="Linguica",
+            total_quantity=Decimal("10.4"),
+            total_value=Decimal("10"),
+        )
+        AccumulatedSale.objects.create(
+            nk_supervisor="B.F.1",
+            nk_vendedor="B.F.NOVO",
+            salesperson_name="Vendedor Novo",
+            client_code=2,
+            sale_date=date(2026, 2, 1),
+            subgroup_name="Salsicha",
+            total_quantity=Decimal("10.5"),
+            total_value=Decimal("10"),
+        )
+
+        DistributionBaselineService.rebuild()
+
+        self.assertEqual(
+            DistributionBaseline.objects.get(subgroup_name="Linguica").total_quantity, Decimal("10")
+        )
+        self.assertEqual(
+            DistributionBaseline.objects.get(subgroup_name="Salsicha").total_quantity, Decimal("11")
+        )
 
 
 class SalesHistoryReadOnlyGuaranteeTests(SimpleTestCase):

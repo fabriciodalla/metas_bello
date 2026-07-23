@@ -1,16 +1,24 @@
-import { useEffect, useState } from "react";
-import { api, ApiError } from "../api/client";
-import type { ChildAllocationInput, GoalAllocation, HierarchyNode, ProductSubgroup } from "../api/types";
+import { ChevronDown, ChevronUp, Plus, TriangleAlert, X } from "lucide-react";
+import { useState } from "react";
+import type { GoalAllocation, HierarchyNode } from "../api/types";
+import { NumericKgInput } from "./ui/NumericKgInput";
+import { Sparkline } from "./Sparkline";
+import { useDistributionRows } from "./useDistributionRows";
+import { Alert } from "./ui/Alert";
+import { Button } from "./ui/Button";
 
-interface Row {
-  key: string;
-  ownerNodeId: number | "";
-  subgroupId: number | "";
-  quantityKg: string;
+function formatKg(value: number): string {
+  return `${Math.round(value).toLocaleString("pt-BR")} kg`;
 }
 
-function emptyRow(): Row {
-  return { key: crypto.randomUUID(), ownerNodeId: "", subgroupId: "", quantityKg: "" };
+function formatSignedPct(value: number): string {
+  const sign = value >= 0 ? "+" : "-";
+  return `${sign}${Math.abs(value).toFixed(1).replace(".", ",")}%`;
+}
+
+function pctDiff(current: number, reference: number | null): number | null {
+  if (reference === null || reference <= 0) return null;
+  return ((current - reference) / reference) * 100;
 }
 
 interface Props {
@@ -19,151 +27,184 @@ interface Props {
   onDistributed: () => void;
 }
 
+// Distribuição genérica (linhas livres, destino selecionável) usada pelo único nível sem tela
+// dedicada — Supervisor→Vendedor, sem contexto histórico. Gerente→Regional e Regional→Local usam
+// RegionalDistributionTable (renderizado em GroupCycleOverview); a quebra do Coordenador Local
+// (grupo→subgrupo→supervisor) tem suas próprias telas, "Distribuir Produtos" e "Meta Supervisor".
 export function DistributionForm({ allocation, directChildren, onDistributed }: Props) {
-  const breaksToSubgroup = allocation.granularity === "GROUP" && allocation.owner_node_level === "LOCAL";
+  const {
+    showContext,
+    rows,
+    contextByNode,
+    total,
+    diff,
+    error,
+    submitting,
+    updateRow,
+    addRow,
+    removeRow,
+    distributeEvenly,
+    handleSubmit,
+  } = useDistributionRows(allocation, directChildren, onDistributed);
 
-  const [rows, setRows] = useState<Row[]>(() =>
-    directChildren.length > 0
-      ? directChildren.map((node) => ({ ...emptyRow(), ownerNodeId: node.id }))
-      : [emptyRow()],
-  );
-  const [subgroups, setSubgroups] = useState<ProductSubgroup[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (breaksToSubgroup && allocation.group) {
-      void api
-        .get<ProductSubgroup[]>(`/catalog/subgroups/?group=${allocation.group}`)
-        .then(setSubgroups)
-        .catch(() => setSubgroups([]));
-    }
-  }, [breaksToSubgroup, allocation.group]);
-
-  const total = rows.reduce((sum, row) => sum + (Number(row.quantityKg) || 0), 0);
-  const diff = allocation.quantity_kg - total;
-
-  function updateRow(key: string, patch: Partial<Row>) {
-    setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
-  }
-
-  function addRow() {
-    setRows((current) => [...current, emptyRow()]);
-  }
-
-  function removeRow(key: string) {
-    setRows((current) => current.filter((row) => row.key !== key));
-  }
-
-  async function handleSubmit() {
-    setError(null);
-
-    if (rows.some((row) => row.ownerNodeId === "" || row.quantityKg === "")) {
-      setError("Preencha o destino e a quantidade de todas as linhas.");
-      return;
-    }
-    if (breaksToSubgroup && rows.some((row) => row.subgroupId === "")) {
-      setError("Escolha o subgrupo de cada linha.");
-      return;
-    }
-
-    const children: ChildAllocationInput[] = rows.map((row) => ({
-      owner_node_id: row.ownerNodeId as number,
-      quantity_kg: Number(row.quantityKg),
-      granularity: breaksToSubgroup ? "SUBGROUP" : allocation.granularity,
-      group_id: breaksToSubgroup ? null : allocation.group,
-      subgroup_id: breaksToSubgroup ? (row.subgroupId as number) : allocation.subgroup,
-      product_id: allocation.product,
-    }));
-
-    setSubmitting(true);
-    try {
-      await api.post(`/allocations/${allocation.id}/distribute/`, { children });
-      onDistributed();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erro ao distribuir.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   return (
     <div className="distribution-form">
-      <table>
-        <thead>
-          <tr>
-            <th>Destino</th>
-            {breaksToSubgroup && <th>Subgrupo</th>}
-            <th>Quantidade (kg)</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key}>
-              <td>
-                <select
-                  value={row.ownerNodeId}
-                  onChange={(e) => updateRow(row.key, { ownerNodeId: Number(e.target.value) || "" })}
-                >
-                  <option value="">Selecione…</option>
-                  {directChildren.map((node) => (
-                    <option key={node.id} value={node.id}>
-                      {node.nome}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              {breaksToSubgroup && (
-                <td>
-                  <select
-                    value={row.subgroupId}
-                    onChange={(e) => updateRow(row.key, { subgroupId: Number(e.target.value) || "" })}
-                  >
-                    <option value="">Selecione…</option>
-                    {subgroups.map((subgroup) => (
-                      <option key={subgroup.id} value={subgroup.id}>
-                        {subgroup.nome}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              )}
-              <td>
-                <input
-                  type="number"
-                  min={0}
-                  value={row.quantityKg}
-                  onChange={(e) => updateRow(row.key, { quantityKg: e.target.value })}
-                />
-              </td>
-              <td>
-                <button type="button" onClick={() => removeRow(row.key)} aria-label="Remover linha">
-                  ✕
-                </button>
-              </td>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Destino</th>
+              {showContext && <th>Contexto</th>}
+              <th>Quantidade (kg)</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const context = row.ownerNodeId !== "" ? contextByNode[row.ownerNodeId] : undefined;
+              const currentKg = typeof row.quantityKg === "number" ? row.quantityKg : 0;
+              const yoy = row.quantityKg !== "" ? pctDiff(currentKg, context?.same_month_last_year_kg ?? null) : null;
+              const vs3 = row.quantityKg !== "" ? pctDiff(currentKg, context?.last_3_months_avg_kg ?? null) : null;
+              const liveSharePct = total > 0 ? (currentKg / total) * 100 : null;
+              const isExpanded = expandedKey === row.key;
 
-      <button type="button" onClick={addRow}>
-        + linha
-      </button>
+              return (
+                <>
+                  <tr key={row.key}>
+                    <td>
+                      <select
+                        value={row.ownerNodeId}
+                        onChange={(e) => updateRow(row.key, { ownerNodeId: Number(e.target.value) || "" })}
+                      >
+                        <option value="">Selecione…</option>
+                        {directChildren.map((node) => (
+                          <option key={node.id} value={node.id}>
+                            {node.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    {showContext && (
+                      <td>
+                        {context ? (
+                          <div className="dist-context-cell">
+                            <div className="dist-context-line">
+                              <span>Ano passado</span>
+                              <strong>
+                                {context.same_month_last_year_kg !== null
+                                  ? formatKg(context.same_month_last_year_kg)
+                                  : "—"}
+                              </strong>
+                              {yoy !== null && (
+                                <span className={yoy >= 0 ? "dist-context-positive" : "dist-context-negative"}>
+                                  {formatSignedPct(yoy)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="dist-context-line">
+                              <span>Últ. 3 meses</span>
+                              <strong>
+                                {context.last_3_months_avg_kg !== null ? formatKg(context.last_3_months_avg_kg) : "—"}
+                              </strong>
+                              {vs3 !== null && (
+                                <span className={vs3 >= 0 ? "dist-context-positive" : "dist-context-negative"}>
+                                  {formatSignedPct(vs3)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="dist-context-line">
+                              <span>Participação</span>
+                              <strong>
+                                {context.historical_share_pct !== null
+                                  ? `${context.historical_share_pct.toFixed(0)}% hist.`
+                                  : "—"}
+                              </strong>
+                              {liveSharePct !== null && <span>{liveSharePct.toFixed(0)}% agora</span>}
+                            </div>
+                            {context.suggested_kg !== null && (
+                              <div className="dist-context-line">
+                                <span>Sugestão</span>
+                                <strong>{formatKg(context.suggested_kg)}</strong>
+                              </div>
+                            )}
+                            {context.has_gap && (
+                              <div className="dist-context-gap">
+                                <TriangleAlert size={12} /> histórico incompleto
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              className="dist-context-toggle"
+                              onClick={() => setExpandedKey(isExpanded ? null : row.key)}
+                            >
+                              {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                              Histórico
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="dist-context-empty">Sem histórico</span>
+                        )}
+                      </td>
+                    )}
+                    <td>
+                      <NumericKgInput
+                        value={row.quantityKg}
+                        onChange={(value) => updateRow(row.key, { quantityKg: value })}
+                        ariaLabel="Quantidade em kg"
+                      />
+                    </td>
+                    <td>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="btn-icon"
+                        onClick={() => removeRow(row.key)}
+                        aria-label="Remover linha"
+                      >
+                        <X size={16} />
+                      </Button>
+                    </td>
+                  </tr>
+                  {showContext && isExpanded && context && (
+                    <tr key={`${row.key}-detail`}>
+                      <td colSpan={4} className="dist-context-detail">
+                        <Sparkline history={context.history} />
+                      </td>
+                    </tr>
+                  )}
+                </>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-      <p className={diff === 0 ? "sum-ok" : "sum-diff"}>
-        {diff === 0
-          ? `Fecha exatamente com ${allocation.quantity_kg} kg.`
-          : diff > 0
-            ? `Faltam ${diff} kg para fechar ${allocation.quantity_kg} kg.`
-            : `Sobram ${-diff} kg além de ${allocation.quantity_kg} kg.`}
-      </p>
+      <div className="distribution-form-actions">
+        <Button variant="outline" size="sm" onClick={addRow}>
+          <Plus size={14} /> linha
+        </Button>
+        <Button variant="ghost" size="sm" onClick={distributeEvenly} disabled={rows.length === 0}>
+          Distribuir igualmente
+        </Button>
+      </div>
 
-      {error && <p className="error">{error}</p>}
+      <div style={{ marginTop: "var(--space-4)" }}>
+        <Alert variant={diff === 0 ? "success" : diff > 0 ? "warning" : "danger"}>
+          {diff === 0
+            ? `Fecha exatamente com ${allocation.quantity_kg} kg.`
+            : diff > 0
+              ? `Faltam ${diff} kg para fechar ${allocation.quantity_kg} kg.`
+              : `Sobram ${-diff} kg além de ${allocation.quantity_kg} kg.`}
+        </Alert>
+      </div>
 
-      <button type="button" onClick={handleSubmit} disabled={submitting || diff !== 0}>
+      {error && <Alert variant="danger">{error}</Alert>}
+
+      <Button onClick={handleSubmit} disabled={submitting || diff !== 0}>
         {submitting ? "Distribuindo…" : "Distribuir"}
-      </button>
+      </Button>
     </div>
   );
 }

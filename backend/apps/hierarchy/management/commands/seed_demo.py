@@ -47,16 +47,33 @@ class Command(BaseCommand):
 
         # Administrador (H3/Decisão 4): CRUD via Django Admin, sem posição na cascata de metas —
         # papel separado do Gerente, mesmo que a mesma pessoa possa ocupar os dois na vida real.
-        admin_user = User.objects.create_superuser(username="admin", password="admin12345", email="")
+        admin_user = User.objects.create_superuser(
+            username="admin", password="admin12345", email="admin@bello.local"
+        )
         admin_user.is_admin = True
         admin_user.save()
 
         gerente_user = User.objects.create_user(
-            username="gerente", password="senha12345", hierarchy_node=gerente_node
+            username="gerente",
+            password="senha12345",
+            email="gerente@bello.local",
+            hierarchy_node=gerente_node,
         )
-        User.objects.create_user(username="regional", password="senha12345", hierarchy_node=regional_node)
-        User.objects.create_user(username="local", password="senha12345", hierarchy_node=local_node)
-        User.objects.create_user(username="supervisor", password="senha12345", hierarchy_node=supervisor_node)
+        User.objects.create_user(
+            username="regional",
+            password="senha12345",
+            email="regional@bello.local",
+            hierarchy_node=regional_node,
+        )
+        User.objects.create_user(
+            username="local", password="senha12345", email="local@bello.local", hierarchy_node=local_node
+        )
+        User.objects.create_user(
+            username="supervisor",
+            password="senha12345",
+            email="supervisor@bello.local",
+            hierarchy_node=supervisor_node,
+        )
 
         GoalAllocation.objects.create(
             cycle=cycle,
@@ -69,7 +86,8 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                "Seed criado. Login: admin / admin12345 (Administrador, sem posição na hierarquia); "
-                "gerente / senha12345 (demais usuários também: senha12345)."
+                "Seed criado. Login por e-mail: admin@bello.local / admin12345 (Administrador, sem "
+                "posição na hierarquia); gerente@bello.local / senha12345 (demais usuários seguem o "
+                "mesmo padrão {username}@bello.local, senha senha12345)."
             )
         )

@@ -26,6 +26,24 @@ Closure table (`ancestor_id`, `descendant_id`, `depth`) para consultas O(1) de "
 de X" (isolamento de escopo) sem recursão em runtime. Alternativa equivalente: CTE recursiva; a closure
 table é preferida por ser consulta frequente de visibilidade.
 
+### ExternalSalespersonMapping
+Liga o nome livre do vendedor no ERP (`salesperson_name`, usado em `DistributionBaseline`/
+`ClientPortfolioSnapshot`) ao `HierarchyNode` (nível VENDEDOR) correspondente — O3/O5, Decisão 9.
+- `external_name` (`unique`), `hierarchy_node` (FK).
+- Populado **manualmente** via Django Admin, de propósito sem casamento automático por nome (nome
+  livre pode divergir em grafia, ter homônimo, ou mudar ao longo do tempo).
+
+### FeristaCoverage
+Cobertura de férias — Decisão 13. Um ferista **não tem nó próprio na hierarquia**: só liga o nome
+livre dele no ERP (`external_name`) ao `HierarchyNode` VENDEDOR titular que ele cobriu
+(`covered_node`), num mês específico (`ano`, `mes`).
+- `UniqueConstraint(external_name, ano, mes)` — um ferista só cobre uma pessoa por mês.
+  `covered_node.level` precisa ser VENDEDOR.
+- Consumido por `SalesHistoryProvider.target_history`: redireciona o volume vendido pelo ferista,
+  só no(s) mês(es) cobertos, pro histórico do titular — fora disso, o nome não conta pra ninguém.
+- Gestão pela função "Feristas" do Administrador (`frontend/src/pages/admin/FeristaManager.tsx`),
+  via `FeristaCoverageViewSet` (mesmo padrão de CRUD de hierarquia/catálogo); também no Django Admin.
+
 ### ProductGroup
 Grupo de produto: **Embutidos, Frangos, Pescados, Revenda**.
 
@@ -101,9 +119,13 @@ sim derivada localmente de `AccumulatedSale` + `ClientPortfolioSnapshot`, unidas
 `client_code` (clifor, comum às duas). Reatribui cada venda ao vendedor **atual** da carteira do
 cliente, não a quem historicamente vendeu — não importa quem vendeu, importa quanto o cliente
 comprou, e esse total conta para quem hoje é responsável por ele (mesmo que nunca tenha vendido
-pra esse cliente pessoalmente). Clientes do acumulado sem entrada na carteira atual ficam de fora.
-- `ano`, `mes`, `salesperson_name` (nome, não código — a carteira só expõe nome), `subgroup_name`,
-  `total_quantity` (soma).
+pra esse cliente pessoalmente). Clientes do acumulado sem entrada na carteira atual **não ficam
+de fora** (Decisão 12): geram uma linha própria com `salesperson_name=NULL`, que conta na soma por
+grupo usada na sugestão de meta do Gerente (P1, `SalesHistoryProvider.group_history`), mas não em
+nenhuma soma por vendedor específico (P2-P4, `SalesHistoryProvider.target_history`).
+- `ano`, `mes`, `salesperson_name` (nome, não código — a carteira só expõe nome; **nullable**,
+  `NULL` = sem vendedor vigente na carteira), `subgroup_name`, `total_quantity` (soma do
+  agrupamento, sempre **KG inteiro** — `< 0,5` desce, `>= 0,5` sobe, `ROUND_HALF_UP`).
 - `UniqueConstraint` em (`ano`, `mes`, `salesperson_name`, `subgroup_name`).
 - Reconstruída inteira por `DistributionBaselineService.rebuild()` — chamada automaticamente ao
   final de `sync_sales_history`, ou isoladamente via `rebuild_distribution_baseline` (sem tocar o

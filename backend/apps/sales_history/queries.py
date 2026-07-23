@@ -3,6 +3,19 @@
 Regra de negócio do ERP, não reinterpretada nem simplificada aqui — a única mudança em relação
 ao original é trocar a data mínima fixa do acumulado por um parâmetro (`%s`), para a janela
 poder ser configurada pelo management command em vez de ficar hardcoded.
+
+`CARTEIRA_SQL` recebeu uma correção do usuário (2026-07): o recorte de estado usava
+`ds_estado` (nome por extenso), incompatível com o valor real da coluna e descartando clientes
+ativos da carteira; trocado por `sg_estado` (sigla). O supervisor B.F.212 também vende em SP e GO
+além de MS, e o B.F.292 vende em MS — nenhum dos dois entrava no filtro original, então ambos
+foram adicionados explicitamente.
+
+`stage.st_vendedor.nk_vendedor` não é único globalmente — o mesmo código pode pertencer a dois
+vendedores reais distintos (CPF diferente) cadastrados em empresas (`nk_empresa`) diferentes. Nos
+casos encontrados, o cadastro "fantasma" duplicado sempre caía em São Paulo, enquanto o vendedor
+real de cada código estava em GO/MS/MT. Adicionado `vendedor.ds_estado NOT LIKE '%SAO PAULO%'`
+(mesmo filtro que `ACUMULADO_SQL` já usava em `vend.ds_estado`, agora espelhado aqui) pra excluir
+esse cadastro fantasma do JOIN da carteira.
 """
 
 ACUMULADO_SQL = """
@@ -353,15 +366,23 @@ WHERE endereco.st_ativo = 'S'
       'B.F.1364'
   )
 
+  AND vendedor.ds_estado NOT LIKE '%%SAO PAULO%%'
+
   AND (
         (sup_map.nk_supervisor = 'B.F.229'
-         AND endereco.ds_estado = 'GOIAS')
+         AND endereco.sg_estado = 'GO')
 
-     OR (sup_map.nk_supervisor IN ('B.F.434','B.F.212','B.F.293','B.F.446','B.F.214')
-         AND endereco.ds_estado = 'MATO GROSSO DO SUL')
+     OR (sup_map.nk_supervisor IN ('B.F.434','B.F.212','B.F.293','B.F.446','B.F.214','B.F.292')
+         AND endereco.sg_estado = 'MS')
+
+     OR (sup_map.nk_supervisor = 'B.F.212'
+         AND endereco.sg_estado = 'SP')
+
+     OR (sup_map.nk_supervisor = 'B.F.212'
+         AND endereco.sg_estado = 'GO')
 
      OR (sup_map.nk_supervisor IN ('B.F.80','B.F.1017','B.F.253')
-         AND endereco.ds_estado = 'MATO GROSSO')
+         AND endereco.sg_estado = 'MT')
   )
 
 ORDER BY clifor.cd_clifor,
