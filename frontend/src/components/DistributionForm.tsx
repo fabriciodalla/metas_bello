@@ -190,7 +190,7 @@ export function DistributionForm({ allocation, directChildren, onDistributed }: 
         </Button>
       </div>
 
-      <div style={{ marginTop: "var(--space-4)" }}>
+      <div className="mt-4">
         <Alert variant={diff === 0 ? "success" : diff > 0 ? "warning" : "danger"}>
           {diff === 0
             ? `Fecha exatamente com ${allocation.quantity_kg} kg.`

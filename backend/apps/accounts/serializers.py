@@ -180,6 +180,7 @@ class UserAccountSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
         has_level = "level" in validated_data
+        has_parent = "parent_node" in validated_data
         level = validated_data.pop("level", None)
         parent_node = validated_data.pop("parent_node", None)
         was_active = instance.is_active
@@ -188,7 +189,19 @@ class UserAccountSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
         instance.save()
-        if has_level:
+        if has_level or has_parent:
+            # PATCH pode mandar só um dos dois campos (ex.: trocar só o superior, mantendo o
+            # cargo) — o que não veio no payload preenche a partir da posição principal atual,
+            # em vez de assumir `None` (que faria `_sync_position` tratar como "sem cargo"/"sem
+            # superior" e ou desvincular a posição, ou falhar a validação de nível/pai). Bug real,
+            # 2026-07-24: um PATCH só com `parent_node_id` (sem `level`) respondia 200 sem mover
+            # o nó — a UI nunca aciona esse caminho (sempre reenvia os dois juntos), mas a API
+            # aceitava silenciosamente sem efeito.
+            existing = instance.hierarchy_nodes.order_by("id").first()
+            if not has_level:
+                level = existing.level if existing else None
+            if not has_parent:
+                parent_node = existing.parent if existing else None
             self._sync_position(instance, level, parent_node)
 
         # Desligar alguém (is_active True->False) não pode deixar a(s) posição(ões) dele soltas,

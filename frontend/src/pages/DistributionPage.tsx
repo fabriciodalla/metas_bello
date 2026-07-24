@@ -188,28 +188,30 @@ export function DistributionPage() {
           <h2>Já distribuído ({done.length})</h2>
           {done.length === 0 && !loading && <EmptyState>Nada distribuído ainda neste ciclo.</EmptyState>}
           {done.length > 0 && (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Quantidade</th>
-                    <th>Granularidade</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {done.map((allocation) => (
-                    <tr key={allocation.id}>
-                      <td>{allocation.quantity_kg} kg</td>
-                      <td>{allocation.granularity}</td>
-                      <td>
-                        <Badge variant="success">Distribuído</Badge>
-                      </td>
+            <Card>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Quantidade</th>
+                      <th>Granularidade</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {done.map((allocation) => (
+                      <tr key={allocation.id}>
+                        <td>{allocation.quantity_kg} kg</td>
+                        <td>{allocation.granularity}</td>
+                        <td>
+                          <Badge variant="success">Distribuído</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           )}
         </>
       )}

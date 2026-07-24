@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
 import { Spinner } from "../../components/ui/Spinner";
 import { Badge } from "../../components/ui/Badge";
+import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 
 export function MetasPage() {
@@ -55,40 +56,42 @@ export function MetasPage() {
       {loading && <Spinner />}
       {!loading && rows.length === 0 && <EmptyState>Nenhuma meta chegou ao Vendedor neste ciclo ainda.</EmptyState>}
       {!loading && rows.length > 0 && (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Coordenador Regional</th>
-                <th>Coordenador Local</th>
-                <th>Supervisor</th>
-                <th>Vendedor</th>
-                <th>Grupo</th>
-                <th>Subgrupo</th>
-                <th>Meta (kg)</th>
-                <th>Ciclo</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr key={index}>
-                  <td>{row.regional}</td>
-                  <td>{row.local}</td>
-                  <td>{row.supervisor}</td>
-                  <td>{row.vendedor}</td>
-                  <td>{row.grupo}</td>
-                  <td>{row.subgrupo}</td>
-                  <td>{row.quantity_kg}</td>
-                  <td>{cicloLabel}</td>
-                  <td>
-                    <Badge variant={row.status === "META AJUSTADA" ? "warning" : "success"}>{row.status}</Badge>
-                  </td>
+        <Card title="Metas por vendedor" subtitle={cicloLabel}>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Coordenador Regional</th>
+                  <th>Coordenador Local</th>
+                  <th>Supervisor</th>
+                  <th>Vendedor</th>
+                  <th>Grupo</th>
+                  <th>Subgrupo</th>
+                  <th>Meta (kg)</th>
+                  <th>Ciclo</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr key={index}>
+                    <td>{row.regional}</td>
+                    <td>{row.local}</td>
+                    <td>{row.supervisor}</td>
+                    <td>{row.vendedor}</td>
+                    <td>{row.grupo}</td>
+                    <td>{row.subgrupo}</td>
+                    <td>{row.quantity_kg}</td>
+                    <td>{cicloLabel}</td>
+                    <td>
+                      <Badge variant={row.status === "META AJUSTADA" ? "warning" : "success"}>{row.status}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </section>
   );

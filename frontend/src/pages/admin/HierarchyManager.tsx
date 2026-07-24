@@ -183,7 +183,7 @@ export function HierarchyManager() {
       <Card
         title="Hierarquia"
         actions={
-          <label className="field-check" style={{ marginBottom: 0 }}>
+          <label className="field-check mb-0">
             <input
               type="checkbox"
               checked={showInactive}
@@ -238,7 +238,7 @@ export function HierarchyManager() {
               <TriangleAlert size={14} /> {deactivateError}
             </Alert>
           )}
-          <div className="field-group" style={{ marginTop: "var(--space-4)" }}>
+          <div className="field-group mt-4">
             <Button variant="danger" onClick={() => void confirmDeactivate()} disabled={deactivating}>
               {deactivating ? "Desativando…" : "Desativar"}
             </Button>

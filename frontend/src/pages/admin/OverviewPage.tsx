@@ -7,6 +7,7 @@ import { useCycleOverview } from "./useCycleOverview";
 import { StatRow, StatTile } from "../../components/ui/StatTile";
 import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Card } from "../../components/ui/Card";
 import { AllocationStatusTable, type AllocationStatusItem } from "../../components/AllocationStatusTable";
 
 interface AllocationTreeNodeData {
@@ -165,28 +166,30 @@ export function OverviewPage() {
             <StatTile value={pendentesCount} label="Pendências de distribuição" />
           </StatRow>
 
-          <h3>Metas por nível (até Coordenador Local)</h3>
-          <div className="table-wrap tree-scroll" style={{ padding: "var(--space-3)" }}>
-            <ul className="tree-root">
-              {rootNodes.map((node) => (
-                <AllocationTree
-                  key={node.nodeId}
-                  node={node}
-                  childrenByParent={childrenByParent}
-                  depth={0}
-                  expanded={expanded}
-                  onToggle={toggle}
-                />
-              ))}
-            </ul>
-          </div>
+          <Card title="Metas por nível (até Coordenador Local)">
+            <div className="table-wrap tree-scroll">
+              <ul className="tree-root">
+                {rootNodes.map((node) => (
+                  <AllocationTree
+                    key={node.nodeId}
+                    node={node}
+                    childrenByParent={childrenByParent}
+                    depth={0}
+                    expanded={expanded}
+                    onToggle={toggle}
+                  />
+                ))}
+              </ul>
+            </div>
+          </Card>
 
-          <h3>Status de distribuição por usuário</h3>
-          {statusItems.length === 0 ? (
-            <EmptyState>Nenhuma meta disponível neste ciclo.</EmptyState>
-          ) : (
-            <AllocationStatusTable items={statusItems} />
-          )}
+          <Card title="Status de distribuição por usuário">
+            {statusItems.length === 0 ? (
+              <EmptyState>Nenhuma meta disponível neste ciclo.</EmptyState>
+            ) : (
+              <AllocationStatusTable items={statusItems} />
+            )}
+          </Card>
         </>
       )}
     </section>

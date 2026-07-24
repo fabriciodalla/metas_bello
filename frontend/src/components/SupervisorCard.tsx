@@ -1,5 +1,6 @@
 import type { HierarchyNode } from "../api/types";
 import { Badge } from "./ui/Badge";
+import { MetricChip } from "./ui/MetricChip";
 import { NumericKgInput } from "./ui/NumericKgInput";
 import { ProgressBar } from "./ui/ProgressBar";
 
@@ -71,19 +72,21 @@ export function SupervisorCard({
       </div>
 
       <div className="sv-card-metrics">
-        <div className="sv-card-metric">
-          <span className="sv-card-metric-label">{metaLabel}</span>
-          <span className="sv-card-metric-value" title={formatKg(metaTotalSupervisorKg)}>
-            {formatKg(metaTotalSupervisorKg)}
-          </span>
-        </div>
+        <MetricChip
+          className="sv-card-metric"
+          size="lg"
+          label={metaLabel}
+          value={formatKg(metaTotalSupervisorKg)}
+          valueTitle={formatKg(metaTotalSupervisorKg)}
+        />
         <div className="sv-card-metric-divider" aria-hidden="true" />
-        <div className="sv-card-metric">
-          <span className="sv-card-metric-label">Meta no grupo</span>
-          <span className="sv-card-metric-value" title={formatKg(metaSupervisorGrupoKg)}>
-            {formatKg(metaSupervisorGrupoKg)}
-          </span>
-        </div>
+        <MetricChip
+          className="sv-card-metric"
+          size="lg"
+          label="Meta no grupo"
+          value={formatKg(metaSupervisorGrupoKg)}
+          valueTitle={formatKg(metaSupervisorGrupoKg)}
+        />
       </div>
       <ProgressBar
         percent={groupPercent}

@@ -93,10 +93,10 @@ function rowLabel(row: GroupRow) {
 // falta sem repetir o mesmo usuário nem inflar a lista com uma linha por subgrupo.
 export function PendingAllocationsTable({ items }: { items: PendingAllocationItem[] }) {
   const groups = groupByOwner(items);
-  const [closedOwners, setClosedOwners] = useState<Set<number>>(new Set());
+  const [openOwners, setOpenOwners] = useState<Set<number>>(new Set());
 
   function toggle(ownerNodeId: number) {
-    setClosedOwners((prev) => {
+    setOpenOwners((prev) => {
       const next = new Set(prev);
       if (next.has(ownerNodeId)) next.delete(ownerNodeId);
       else next.add(ownerNodeId);
@@ -118,7 +118,7 @@ export function PendingAllocationsTable({ items }: { items: PendingAllocationIte
         </thead>
         <tbody>
           {groups.map((group) => {
-            const isOpen = !closedOwners.has(group.ownerNodeId);
+            const isOpen = openOwners.has(group.ownerNodeId);
             return (
               <Fragment key={group.ownerNodeId}>
                 <tr className="pending-row-summary" onClick={() => toggle(group.ownerNodeId)}>

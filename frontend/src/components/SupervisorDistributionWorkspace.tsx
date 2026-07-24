@@ -5,6 +5,7 @@ import { Alert } from "./ui/Alert";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { EmptyState } from "./ui/EmptyState";
+import { MetricChip } from "./ui/MetricChip";
 import { ProgressBar } from "./ui/ProgressBar";
 
 function formatKg(value: number): string {
@@ -110,28 +111,18 @@ export function SupervisorDistributionWorkspace({
       </div>
 
       <div className="rdt-summary sv-sticky-summary">
-        <div className="rdt-summary-block">
-          <span className="rdt-summary-label">Total distribuído no subgrupo</span>
-          <span className="rdt-summary-value rdt-summary-positive">{formatKg(total)}</span>
-        </div>
+        <MetricChip label="Total distribuído no subgrupo" value={formatKg(total)} tone="success" size="xl" />
         <div className="rdt-summary-bar">
           <ProgressBar percent={percentSubgrupo} variant={isOver ? "danger" : "success"} />
           <span>{formatPct(percentSubgrupo)}</span>
         </div>
-        <div className="rdt-summary-block rdt-summary-block-end">
-          <span className="rdt-summary-label">Restante no subgrupo</span>
-          <span
-            className={
-              diff === 0
-                ? "rdt-summary-value rdt-summary-positive"
-                : isOver
-                  ? "rdt-summary-value rdt-summary-danger"
-                  : "rdt-summary-value rdt-summary-warning"
-            }
-          >
-            {formatKg(Math.abs(diff))}
-          </span>
-        </div>
+        <MetricChip
+          className="rdt-summary-block-end"
+          label="Restante no subgrupo"
+          value={formatKg(Math.abs(diff))}
+          size="xl"
+          tone={diff === 0 ? "success" : isOver ? "danger" : "warning"}
+        />
       </div>
 
       {isOver && (

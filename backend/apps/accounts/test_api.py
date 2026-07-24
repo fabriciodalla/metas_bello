@@ -246,6 +246,55 @@ class UserAccountApiTests(APITestCase):
         self.assertEqual(node.id, regional.id)
         self.assertEqual(node.nome, "Nome Novo")
 
+    def test_patching_only_parent_node_id_reparents_without_touching_level(self):
+        """Bug real (2026-07-24): PATCH só com `parent_node_id` (sem `level`) respondia 200 mas
+        não movia o nó, porque `_sync_position` só era chamado quando `level` vinha no payload.
+        A tela de edição sempre reenvia os dois campos juntos, então o caminho nunca era
+        acionado pela UI, mas a API aceitava silenciosamente sem efeito."""
+        self.client.force_login(self.admin)
+        other_gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Outro Gerente")
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.node
+        )
+        target = User.objects.create_user(username="Alvo", password="x", hierarchy_node=regional)
+        original_node_id = target.hierarchy_nodes.get().id
+
+        response = self.client.patch(
+            reverse("user-account-detail", args=[target.id]),
+            {"parent_node_id": other_gerente.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        node = target.hierarchy_nodes.get()
+        self.assertEqual(node.id, original_node_id)
+        self.assertEqual(node.level, HierarchyNode.Level.REGIONAL)
+        self.assertEqual(node.parent_id, other_gerente.id)
+
+    def test_patching_only_level_with_same_value_keeps_existing_parent(self):
+        """Simétrico ao anterior: reenviar só `level` (mesmo valor, sem `parent_node_id`) não pode
+        assumir `parent=None` e derrubar a posição — precisa manter o superior atual. Trocar de
+        função de verdade (nível diferente) sempre exige mandar o novo superior junto, já que o
+        nível de pai esperado muda; esse teste cobre só o caso de resubmissão sem mudança real."""
+        self.client.force_login(self.admin)
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.node
+        )
+        target = User.objects.create_user(username="Alvo", password="x", hierarchy_node=regional)
+        original_node_id = target.hierarchy_nodes.get().id
+
+        response = self.client.patch(
+            reverse("user-account-detail", args=[target.id]),
+            {"level": HierarchyNode.Level.REGIONAL},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        node = target.hierarchy_nodes.get()
+        self.assertEqual(node.id, original_node_id)
+        self.assertEqual(node.level, HierarchyNode.Level.REGIONAL)
+        self.assertEqual(node.parent_id, self.node.id)
+
     def test_create_without_password_is_rejected(self):
         self.client.force_login(self.admin)
 

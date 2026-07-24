@@ -10,6 +10,7 @@ import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
+import { MetricChip } from "./ui/MetricChip";
 import { NumericKgInput } from "./ui/NumericKgInput";
 import { ProgressBar } from "./ui/ProgressBar";
 import { Skeleton } from "./ui/Skeleton";
@@ -279,16 +280,13 @@ function GroupRowCard({
           </span>
           <ProgressBar percent={percent} variant={isOver ? "danger" : row.status === "distributed" ? "success" : "warning"} size="sm" />
         </span>
-        <span className="pg-header-kg">
-          <span className="pg-header-kg-label">Distribuído</span>
-          <strong>{formatKg(distributedKg)}</strong>
-        </span>
-        <span className="pg-header-kg">
-          <span className="pg-header-kg-label">Restante</span>
-          <strong className={isOver ? "pg-header-kg-danger" : remainingKg === 0 ? "pg-header-kg-success" : "pg-header-kg-warning"}>
-            {formatKg(Math.abs(remainingKg))}
-          </strong>
-        </span>
+        <MetricChip className="pg-header-kg" label="Distribuído" value={formatKg(distributedKg)} />
+        <MetricChip
+          className="pg-header-kg"
+          label="Restante"
+          value={formatKg(Math.abs(remainingKg))}
+          tone={isOver ? "danger" : remainingKg === 0 ? "success" : "warning"}
+        />
         <span className="pg-header-toggle">{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
       </button>
 

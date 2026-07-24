@@ -1,9 +1,10 @@
-import { Eraser, Layers, Package, Save, Send, Target, Wand2 } from "lucide-react";
+import { Eraser, Package, Save, Target, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { GoalAllocation, SubgroupDistributionContext } from "../api/types";
 import { Alert } from "./ui/Alert";
 import { Button } from "./ui/Button";
+import { MetricChip } from "./ui/MetricChip";
 import { NumericKgInput } from "./ui/NumericKgInput";
 import { ProgressBar } from "./ui/ProgressBar";
 import { SummaryCard } from "./ui/SummaryCard";
@@ -17,8 +18,8 @@ function formatPct(value: number): string {
 }
 
 function diffColorClass(diff: number): string {
-  if (diff === 0) return "pg-header-kg-success";
-  return diff > 0 ? "pg-header-kg-warning" : "pg-header-kg-danger";
+  if (diff === 0) return "metric-chip-value-success";
+  return diff > 0 ? "metric-chip-value-warning" : "metric-chip-value-danger";
 }
 
 interface SubgroupRow {
@@ -80,7 +81,6 @@ export function SubgroupSplitForm({ allocation, onSplit }: Props) {
   const total = rows.reduce((sum, row) => sum + (typeof row.quantityKg === "number" ? row.quantityKg : 0), 0);
   const diff = allocation.quantity_kg - total;
   const percentDistributed = allocation.quantity_kg > 0 ? (total / allocation.quantity_kg) * 100 : 0;
-  const percentRemaining = allocation.quantity_kg > 0 ? (Math.abs(diff) / allocation.quantity_kg) * 100 : 0;
   const isOver = diff < 0;
 
   function updateRow(subgroupId: number, value: number | "") {
@@ -123,27 +123,15 @@ export function SubgroupSplitForm({ allocation, onSplit }: Props) {
       <div className="summary-row">
         <SummaryCard icon={Target} label="META DO GRUPO" value={formatKg(allocation.quantity_kg)} />
         <SummaryCard
-          icon={Send}
-          label="DISTRIBUÍDO"
-          value={formatKg(total)}
-          progress={{ percent: percentDistributed, variant: "success" }}
-          progressLabel={<span className="summary-card-progress-positive">{formatPct(percentDistributed)}</span>}
-        />
-        <SummaryCard
-          icon={Layers}
-          label="RESTANTE"
-          accent="warning"
-          value={formatKg(Math.abs(diff))}
-          progress={{ percent: percentRemaining, variant: isOver ? "danger" : "warning" }}
-          progressLabel={formatPct(percentRemaining)}
-        />
-        <SummaryCard
           icon={Package}
           label="SUBGRUPOS"
           value={`${withMetaCount}/${rows.length}`}
           caption="Subgrupos com metas"
         />
       </div>
+      {/* Distribuído/Restante ao vivo já aparecem em rdt-summary, logo acima do botão Salvar —
+          mostrar os mesmos dois números de novo aqui em cima seria repetir a mesma informação
+          duas vezes na mesma tela com dois visuais diferentes. */}
 
       <div className="dp-workspace-card">
         <div className="rdt-header">
@@ -262,28 +250,18 @@ export function SubgroupSplitForm({ allocation, onSplit }: Props) {
         </div>
 
         <div className="rdt-summary">
-          <div className="rdt-summary-block">
-            <span className="rdt-summary-label">Total distribuído</span>
-            <span className="rdt-summary-value rdt-summary-positive">{formatKg(total)}</span>
-          </div>
+          <MetricChip label="Total distribuído" value={formatKg(total)} tone="success" size="xl" />
           <div className="rdt-summary-bar">
             <ProgressBar percent={percentDistributed} variant={isOver ? "danger" : "success"} />
             <span>{formatPct(percentDistributed)}</span>
           </div>
-          <div className="rdt-summary-block rdt-summary-block-end">
-            <span className="rdt-summary-label">Restante do grupo</span>
-            <span
-              className={
-                diff === 0
-                  ? "rdt-summary-value rdt-summary-positive"
-                  : isOver
-                    ? "rdt-summary-value rdt-summary-danger"
-                    : "rdt-summary-value rdt-summary-warning"
-              }
-            >
-              {formatKg(Math.abs(diff))}
-            </span>
-          </div>
+          <MetricChip
+            className="rdt-summary-block-end"
+            label="Restante do grupo"
+            value={formatKg(Math.abs(diff))}
+            size="xl"
+            tone={diff === 0 ? "success" : isOver ? "danger" : "warning"}
+          />
         </div>
       </div>
 

@@ -5,6 +5,7 @@ import { useCycleAllocations } from "./useCycleAllocations";
 import { StatRow, StatTile } from "../../components/ui/StatTile";
 import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Card } from "../../components/ui/Card";
 import { AllocationStatusTable, type AllocationStatusItem } from "../../components/AllocationStatusTable";
 
 export function NivelOverviewPage() {
@@ -55,12 +56,13 @@ export function NivelOverviewPage() {
             <StatTile value={subordinadosPendentesCount} label="Subordinados pendentes" />
           </StatRow>
 
-          <h3>Distribuição dos seus subordinados</h3>
-          {subordinados.length === 0 ? (
-            <EmptyState>Nenhum subordinado com meta disponível neste ciclo.</EmptyState>
-          ) : (
-            <AllocationStatusTable items={subordinados} />
-          )}
+          <Card title="Distribuição dos seus subordinados">
+            {subordinados.length === 0 ? (
+              <EmptyState>Nenhum subordinado com meta disponível neste ciclo.</EmptyState>
+            ) : (
+              <AllocationStatusTable items={subordinados} />
+            )}
+          </Card>
         </>
       )}
     </section>

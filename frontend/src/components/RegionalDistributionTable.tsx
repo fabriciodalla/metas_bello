@@ -4,6 +4,7 @@ import { LEVEL_LABELS, type Level } from "../pages/admin/constants";
 import type { DistributionRowsBag } from "./useDistributionRows";
 import { Alert } from "./ui/Alert";
 import { Button } from "./ui/Button";
+import { MetricChip } from "./ui/MetricChip";
 import { NumericKgInput } from "./ui/NumericKgInput";
 import { ProgressBar } from "./ui/ProgressBar";
 
@@ -147,24 +148,18 @@ export function RegionalDistributionTable({ allocation, directChildren, bag }: P
       </div>
 
       <div className="rdt-summary">
-        <div className="rdt-summary-block">
-          <span className="rdt-summary-label">Total distribuído</span>
-          <span className="rdt-summary-value rdt-summary-positive">{formatKg(total)}</span>
-        </div>
+        <MetricChip label="Total distribuído" value={formatKg(total)} tone="success" size="xl" />
         <div className="rdt-summary-bar">
           <ProgressBar percent={percentDistributed} variant={isOver ? "danger" : "success"} />
           <span>{formatPct(percentDistributed)}</span>
         </div>
-        <div className="rdt-summary-block rdt-summary-block-end">
-          <span className="rdt-summary-label">Restante do grupo</span>
-          <span
-            className={
-              diff === 0 ? "rdt-summary-value rdt-summary-positive" : isOver ? "rdt-summary-value rdt-summary-danger" : "rdt-summary-value rdt-summary-warning"
-            }
-          >
-            {formatKg(Math.abs(diff))}
-          </span>
-        </div>
+        <MetricChip
+          className="rdt-summary-block-end"
+          label="Restante do grupo"
+          value={formatKg(Math.abs(diff))}
+          size="xl"
+          tone={diff === 0 ? "success" : isOver ? "danger" : "warning"}
+        />
       </div>
 
       {isOver && (

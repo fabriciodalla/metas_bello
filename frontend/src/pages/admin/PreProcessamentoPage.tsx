@@ -38,14 +38,14 @@ export function PreProcessamentoPage() {
           {syncing ? "Sincronizando…" : "Sincronizar dados agora"}
         </Button>
         {error && (
-          <div style={{ marginTop: "var(--space-4)" }}>
+          <div className="mt-4">
             <Alert variant="danger" role="alert">
               {error}
             </Alert>
           </div>
         )}
         {result && (
-          <div style={{ marginTop: "var(--space-4)" }}>
+          <div className="mt-4">
             <Alert variant="success">
               Sincronizado desde {result.synced_since}: {result.accumulated_count} linha(s) de
               acumulado, {result.portfolio_count} cliente(s) na carteira, {result.baseline_count}{" "}
@@ -55,16 +55,17 @@ export function PreProcessamentoPage() {
         )}
       </Card>
 
-      <h3>Configurações adicionais</h3>
-      <p>
-        <em>
-          Em breve. Os mapeamentos de histórico de vendas (vendedor/subgrupo externos) continuam no{" "}
-          <a href="/admin/" target="_blank" rel="noreferrer">
-            Django Admin
-          </a>{" "}
-          por enquanto.
-        </em>
-      </p>
+      <Card title="Configurações adicionais">
+        <p className="mb-0">
+          <em>
+            Em breve. Os mapeamentos de histórico de vendas (vendedor/subgrupo externos) continuam no{" "}
+            <a href="/admin/" target="_blank" rel="noreferrer">
+              Django Admin
+            </a>{" "}
+            por enquanto.
+          </em>
+        </p>
+      </Card>
     </section>
   );
 }

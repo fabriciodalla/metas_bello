@@ -50,14 +50,16 @@ export function UserManager() {
           </Button>
         }
       >
-        <div className="field-input-icon" style={{ maxWidth: 320, marginBottom: "var(--space-4)" }}>
-          <Search size={16} />
-          <input
-            type="search"
-            placeholder="Buscar por nome ou e-mail…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="filter-bar">
+          <div className="field-input-icon">
+            <Search size={16} />
+            <input
+              type="search"
+              placeholder="Buscar por nome ou e-mail…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
         <div className="table-wrap">
           <table className="table">
@@ -73,7 +75,7 @@ export function UserManager() {
             <tbody>
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                  <td colSpan={5} className="table-empty-cell">
                     Nenhum usuário encontrado.
                   </td>
                 </tr>

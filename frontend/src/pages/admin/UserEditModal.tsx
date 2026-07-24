@@ -77,7 +77,7 @@ function AddPositionRow({
   }
 
   return (
-    <div style={{ marginTop: "var(--space-2)" }}>
+    <div className="mt-2">
       <div className="field-group">
         <div className="field">
           <label className="field-label" htmlFor="new-position-level">
@@ -126,7 +126,7 @@ function AddPositionRow({
           {error}
         </Alert>
       )}
-      <div className="field-group" style={{ marginTop: "var(--space-2)" }}>
+      <div className="field-group mt-2">
         <Button type="button" size="sm" onClick={() => void handleAdd()} disabled={saving || !level}>
           {saving ? "Adicionando…" : "Adicionar"}
         </Button>
@@ -275,7 +275,7 @@ export function UserEditModal({
           Ativo
         </label>
 
-        <div className="field-group" style={{ marginBottom: "var(--space-3)" }}>
+        <div className="field-group mb-3">
           <div className="field">
             <label className="field-label" htmlFor="user-level">
               Cargo
@@ -327,7 +327,7 @@ export function UserEditModal({
             {error}
           </Alert>
         )}
-        <div className="field-group" style={{ marginTop: "var(--space-4)" }}>
+        <div className="field-group mt-4">
           <Button type="submit" disabled={saving}>
             {saving ? "Salvando…" : editingId === null ? "Criar" : "Salvar"}
           </Button>
@@ -338,9 +338,9 @@ export function UserEditModal({
       </form>
 
       {editingId !== null && (
-        <div className="modal-section" style={{ marginTop: "var(--space-5)", paddingTop: "var(--space-4)" }}>
+        <div className="modal-section mt-5 pt-4">
           <label className="field-label">Outros cargos</label>
-          <p className="field-hint" style={{ marginTop: 0 }}>
+          <p className="field-hint mt-0">
             A mesma pessoa pode ocupar mais de uma posição na árvore (ex.: também ser Coordenador
             Local de um dos ramos que reportam a ela).
           </p>

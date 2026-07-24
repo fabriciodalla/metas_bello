@@ -2,6 +2,7 @@ import { CycleSelect } from "./CycleSelect";
 import { useCycleOverview } from "./useCycleOverview";
 import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Card } from "../../components/ui/Card";
 import { PendingAllocationsTable, type PendingAllocationItem } from "../../components/PendingAllocationsTable";
 
 export function PendenciasPage() {
@@ -26,7 +27,11 @@ export function PendenciasPage() {
 
       {loading && <Spinner />}
       {!loading && pendentes.length === 0 && <EmptyState>Nada pendente neste ciclo.</EmptyState>}
-      {!loading && pendentes.length > 0 && <PendingAllocationsTable items={pendentes} />}
+      {!loading && pendentes.length > 0 && (
+        <Card title="Pendências de distribuição">
+          <PendingAllocationsTable items={pendentes} />
+        </Card>
+      )}
     </section>
   );
 }

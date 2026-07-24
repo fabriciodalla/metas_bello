@@ -253,7 +253,7 @@ export function CatalogManager() {
             <tbody>
               {filteredGroups.length === 0 && (
                 <tr>
-                  <td colSpan={3} style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                  <td colSpan={3} className="table-empty-cell">
                     Nenhum grupo encontrado.
                   </td>
                 </tr>
@@ -329,7 +329,7 @@ export function CatalogManager() {
             <tbody>
               {filteredSubgroups.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                  <td colSpan={4} className="table-empty-cell">
                     Nenhum subgrupo encontrado.
                   </td>
                 </tr>

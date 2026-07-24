@@ -192,7 +192,7 @@ export function FeristaManager() {
           </Button>
         }
       >
-        <p style={{ color: "var(--color-text-muted)", marginTop: 0 }}>
+        <p className="text-muted mt-0">
           Vendedor que cobre férias de outro vendedor num mês específico — o volume vendido nesse mês passa a
           contar pro histórico do vendedor coberto, não pra ninguém mais.
         </p>
@@ -221,7 +221,7 @@ export function FeristaManager() {
             <tbody>
               {filteredCoverages.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                  <td colSpan={4} className="table-empty-cell">
                     Nenhuma cobertura cadastrada.
                   </td>
                 </tr>
