@@ -17,11 +17,11 @@ class GoalAllocationApiTests(APITestCase):
         self.group = ProductGroup.objects.create(nome="Embutidos")
         self.cycle = Cycle.objects.create(ano=2026, mes=7)
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.regional_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional A", parent=self.gerente
+        self.local_a = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.gerente
         )
-        self.regional_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional B", parent=self.gerente
+        self.local_b = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.gerente
         )
         self.user = User.objects.create_user(username="gerente", password="x", hierarchy_node=self.gerente)
         self.allocation = GoalAllocation.objects.create(
@@ -42,7 +42,7 @@ class GoalAllocationApiTests(APITestCase):
         self.assertIn(response.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
     def test_retrieve_outside_scope_returns_404(self):
-        other_node = HierarchyNode.objects.create(level=HierarchyNode.Level.REGIONAL, nome="Outro")
+        other_node = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Outro")
         other_user = User.objects.create_user(username="outro", password="x", hierarchy_node=other_node)
         other_allocation = GoalAllocation.objects.create(
             cycle=self.cycle,
@@ -58,29 +58,27 @@ class GoalAllocationApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_distribute_rejects_when_user_does_not_own_parent_via_api(self):
-        # regional_a é descendente de gerente, então a alocação é *visível* para self.user
+        # local_a é descendente de gerente, então a alocação é *visível* para self.user
         # (owner_node=gerente) via visible_to — mas ele não é o dono direto dela. Isso exercita
         # o AllocationScopeError do service através da view (visível != dono), diferente do 404
         # de test_retrieve_outside_scope_returns_404 (fora do escopo, nem visível).
-        local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local A1", parent=self.regional_a
+        supervisor = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor A1", parent=self.local_a
         )
-        regional_a_user = User.objects.create_user(
-            username="regional_a", password="x", hierarchy_node=self.regional_a
-        )
-        regional_a_allocation = GoalAllocation.objects.create(
+        local_a_user = User.objects.create_user(username="local_a", password="x", hierarchy_node=self.local_a)
+        local_a_allocation = GoalAllocation.objects.create(
             cycle=self.cycle,
-            owner_node=self.regional_a,
+            owner_node=self.local_a,
             granularity=GoalAllocation.Granularity.GROUP,
             group=self.group,
             quantity_kg=60,
-            criado_por=regional_a_user,
+            criado_por=local_a_user,
         )
 
         payload = {
             "children": [
                 {
-                    "owner_node_id": local.id,
+                    "owner_node_id": supervisor.id,
                     "quantity_kg": 60,
                     "granularity": "GROUP",
                     "group_id": self.group.id,
@@ -89,26 +87,26 @@ class GoalAllocationApiTests(APITestCase):
         }
 
         response = self.client.post(
-            reverse("goal-allocation-distribute", kwargs={"pk": regional_a_allocation.pk}),
+            reverse("goal-allocation-distribute", kwargs={"pk": local_a_allocation.pk}),
             payload,
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        regional_a_allocation.refresh_from_db()
-        self.assertFalse(regional_a_allocation.distributed)
+        local_a_allocation.refresh_from_db()
+        self.assertFalse(local_a_allocation.distributed)
 
     def test_distribute_succeeds_and_returns_created_children(self):
         payload = {
             "children": [
                 {
-                    "owner_node_id": self.regional_a.id,
+                    "owner_node_id": self.local_a.id,
                     "quantity_kg": 60,
                     "granularity": "GROUP",
                     "group_id": self.group.id,
                 },
                 {
-                    "owner_node_id": self.regional_b.id,
+                    "owner_node_id": self.local_b.id,
                     "quantity_kg": 40,
                     "granularity": "GROUP",
                     "group_id": self.group.id,
@@ -129,13 +127,13 @@ class GoalAllocationApiTests(APITestCase):
         payload = {
             "children": [
                 {
-                    "owner_node_id": self.regional_a.id,
+                    "owner_node_id": self.local_a.id,
                     "quantity_kg": 60,
                     "granularity": "GROUP",
                     "group_id": self.group.id,
                 },
                 {
-                    "owner_node_id": self.regional_b.id,
+                    "owner_node_id": self.local_b.id,
                     "quantity_kg": 30,
                     "granularity": "GROUP",
                     "group_id": self.group.id,
@@ -153,13 +151,13 @@ class GoalAllocationApiTests(APITestCase):
         distribute_payload = {
             "children": [
                 {
-                    "owner_node_id": self.regional_a.id,
+                    "owner_node_id": self.local_a.id,
                     "quantity_kg": 60,
                     "granularity": "GROUP",
                     "group_id": self.group.id,
                 },
                 {
-                    "owner_node_id": self.regional_b.id,
+                    "owner_node_id": self.local_b.id,
                     "quantity_kg": 40,
                     "granularity": "GROUP",
                     "group_id": self.group.id,
@@ -190,7 +188,7 @@ class GoalAllocationApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_list_only_shows_allocations_in_own_branch(self):
-        other_node = HierarchyNode.objects.create(level=HierarchyNode.Level.REGIONAL, nome="Outro")
+        other_node = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Outro")
         other_user = User.objects.create_user(username="outro", password="x", hierarchy_node=other_node)
         GoalAllocation.objects.create(
             cycle=self.cycle,

@@ -11,7 +11,7 @@ User = get_user_model()
 
 class Command(BaseCommand):
     help = (
-        "Semeia um cenário mínimo de demonstração (hierarquia de 5 níveis, catálogo, ciclo aberto, "
+        "Semeia um cenário mínimo de demonstração (hierarquia de 4 níveis, catálogo, ciclo aberto, "
         "usuários e uma alocação raiz pendente). Só para ambiente de desenvolvimento."
     )
 
@@ -28,12 +28,9 @@ class Command(BaseCommand):
 
         cycle = Cycle.objects.create(ano=2026, mes=7)
 
-        gerente_node = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente Bello")
-        regional_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional Sul", parent=gerente_node
-        )
+        gerente_node = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente Levo")
         local_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local Curitiba", parent=regional_node
+            level=HierarchyNode.Level.LOCAL, nome="Local Curitiba", parent=gerente_node
         )
         supervisor_node = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor A", parent=local_node
@@ -48,7 +45,7 @@ class Command(BaseCommand):
         # Administrador (H3/Decisão 4): CRUD via Django Admin, sem posição na cascata de metas —
         # papel separado do Gerente, mesmo que a mesma pessoa possa ocupar os dois na vida real.
         admin_user = User.objects.create_superuser(
-            username="admin", password="admin12345", email="admin@bello.local"
+            username="admin", password="admin12345", email="admin@levo.local"
         )
         admin_user.is_admin = True
         admin_user.save()
@@ -56,22 +53,16 @@ class Command(BaseCommand):
         gerente_user = User.objects.create_user(
             username="gerente",
             password="senha12345",
-            email="gerente@bello.local",
+            email="gerente@levo.local",
             hierarchy_node=gerente_node,
         )
         User.objects.create_user(
-            username="regional",
-            password="senha12345",
-            email="regional@bello.local",
-            hierarchy_node=regional_node,
-        )
-        User.objects.create_user(
-            username="local", password="senha12345", email="local@bello.local", hierarchy_node=local_node
+            username="local", password="senha12345", email="local@levo.local", hierarchy_node=local_node
         )
         User.objects.create_user(
             username="supervisor",
             password="senha12345",
-            email="supervisor@bello.local",
+            email="supervisor@levo.local",
             hierarchy_node=supervisor_node,
         )
 
@@ -86,8 +77,8 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                "Seed criado. Login por e-mail: admin@bello.local / admin12345 (Administrador, sem "
-                "posição na hierarquia); gerente@bello.local / senha12345 (demais usuários seguem o "
-                "mesmo padrão {username}@bello.local, senha senha12345)."
+                "Seed criado. Login por e-mail: admin@levo.local / admin12345 (Administrador, sem "
+                "posição na hierarquia); gerente@levo.local / senha12345 (demais usuários seguem o "
+                "mesmo padrão {username}@levo.local, senha senha12345)."
             )
         )

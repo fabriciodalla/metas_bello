@@ -137,12 +137,12 @@ class SalesHistoryProviderEndToEndStrategyTests(TestCase):
         self.subgroup = ProductSubgroup.objects.create(nome="Linguiça", group=self.group)
         ExternalProductMapping.objects.create(external_code="LINGUICA", subgroup=self.subgroup)
 
-        self.regional = HierarchyNode.objects.create(level=HierarchyNode.Level.REGIONAL, nome="Regional")
+        self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
         self.local_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.regional
+            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.gerente
         )
         self.local_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.regional
+            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.gerente
         )
         vendedor_a = HierarchyNode.objects.create(
             level=HierarchyNode.Level.VENDEDOR, nome="Vendedor A", parent=self.local_a

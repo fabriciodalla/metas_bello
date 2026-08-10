@@ -40,11 +40,11 @@ class DistributeGoalServiceTests(TestCase):
         self.group = ProductGroup.objects.create(nome="Embutidos")
         self.cycle = Cycle.objects.create(ano=2026, mes=7)
         self.gerente_node = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.regional_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional A", parent=self.gerente_node
+        self.local_a = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.gerente_node
         )
-        self.regional_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional B", parent=self.gerente_node
+        self.local_b = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.gerente_node
         )
         self.user = User.objects.create_user(
             username="gerente", password="x", hierarchy_node=self.gerente_node
@@ -61,13 +61,13 @@ class DistributeGoalServiceTests(TestCase):
     def _children(self, qty_a, qty_b):
         return [
             ChildAllocationSpec(
-                owner_node_id=self.regional_a.id,
+                owner_node_id=self.local_a.id,
                 quantity_kg=qty_a,
                 granularity=GoalAllocation.Granularity.GROUP,
                 group_id=self.group.id,
             ),
             ChildAllocationSpec(
-                owner_node_id=self.regional_b.id,
+                owner_node_id=self.local_b.id,
                 quantity_kg=qty_b,
                 granularity=GoalAllocation.Granularity.GROUP,
                 group_id=self.group.id,
@@ -103,7 +103,7 @@ class DistributeGoalServiceTests(TestCase):
             )
 
     def test_distribute_rejects_when_user_does_not_own_parent(self):
-        other_node = HierarchyNode.objects.create(level=HierarchyNode.Level.REGIONAL, nome="Outro Ramo")
+        other_node = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Outro Ramo")
         outsider = User.objects.create_user(username="outsider", password="x", hierarchy_node=other_node)
 
         with self.assertRaises(AllocationScopeError):
@@ -116,7 +116,7 @@ class DistributeGoalServiceTests(TestCase):
 
     def test_distribute_rejects_when_target_is_not_direct_child(self):
         grandchild = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Neto", parent=self.regional_a
+            level=HierarchyNode.Level.SUPERVISOR, nome="Neto", parent=self.local_a
         )
         children = [
             ChildAllocationSpec(
@@ -137,11 +137,11 @@ class CycleCompletenessCheckerTests(TestCase):
         self.group = ProductGroup.objects.create(nome="Embutidos")
         self.cycle = Cycle.objects.create(ano=2026, mes=7)
         self.gerente_node = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente_node
+        self.local = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente_node
         )
         self.vendedor = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.VENDEDOR, nome="Vendedor", parent=self.regional
+            level=HierarchyNode.Level.VENDEDOR, nome="Vendedor", parent=self.local
         )
         self.gerente_allocation = GoalAllocation.objects.create(
             cycle=self.cycle,

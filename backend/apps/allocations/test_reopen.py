@@ -31,11 +31,8 @@ class ReopenAllocationServiceTests(TestCase):
 
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
 
-        self.regional_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional A", parent=self.gerente
-        )
         self.local_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.regional_a
+            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.gerente
         )
         self.supervisor_a = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor A", parent=self.local_a
@@ -44,11 +41,8 @@ class ReopenAllocationServiceTests(TestCase):
             level=HierarchyNode.Level.VENDEDOR, nome="Vendedor A", parent=self.supervisor_a
         )
 
-        self.regional_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional B", parent=self.gerente
-        )
         self.local_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.regional_b
+            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.gerente
         )
         self.supervisor_b = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor B", parent=self.local_b
@@ -60,17 +54,11 @@ class ReopenAllocationServiceTests(TestCase):
         self.gerente_user = User.objects.create_user(
             username="gerente", password="x", hierarchy_node=self.gerente
         )
-        self.regional_a_user = User.objects.create_user(
-            username="regional_a", password="x", hierarchy_node=self.regional_a
-        )
         self.local_a_user = User.objects.create_user(
             username="local_a", password="x", hierarchy_node=self.local_a
         )
         self.supervisor_a_user = User.objects.create_user(
             username="supervisor_a", password="x", hierarchy_node=self.supervisor_a
-        )
-        self.regional_b_user = User.objects.create_user(
-            username="regional_b", password="x", hierarchy_node=self.regional_b
         )
         self.local_b_user = User.objects.create_user(
             username="local_b", password="x", hierarchy_node=self.local_b
@@ -88,18 +76,18 @@ class ReopenAllocationServiceTests(TestCase):
             criado_por=self.gerente_user,
         )
 
-    def _distribute_gerente_to_both_regionais(self):
+    def _distribute_gerente_to_both_locais(self):
         return DistributeGoalService.distribute(
             self.gerente_allocation,
             [
                 ChildAllocationSpec(
-                    owner_node_id=self.regional_a.id,
+                    owner_node_id=self.local_a.id,
                     quantity_kg=600,
                     granularity=GoalAllocation.Granularity.GROUP,
                     group_id=self.group.id,
                 ),
                 ChildAllocationSpec(
-                    owner_node_id=self.regional_b.id,
+                    owner_node_id=self.local_b.id,
                     quantity_kg=400,
                     granularity=GoalAllocation.Granularity.GROUP,
                     group_id=self.group.id,
@@ -108,19 +96,7 @@ class ReopenAllocationServiceTests(TestCase):
             criado_por=self.gerente_user,
         )
 
-    def _distribute_branch_down(self, regional_alloc, local, supervisor, vendedor, users, qty):
-        (local_alloc,) = DistributeGoalService.distribute(
-            regional_alloc,
-            [
-                ChildAllocationSpec(
-                    owner_node_id=local.id,
-                    quantity_kg=qty,
-                    granularity=GoalAllocation.Granularity.GROUP,
-                    group_id=self.group.id,
-                )
-            ],
-            criado_por=users[0],
-        )
+    def _distribute_branch_down(self, local_alloc, supervisor, vendedor, users, qty):
         (supervisor_alloc,) = DistributeGoalService.distribute(
             local_alloc,
             [
@@ -131,7 +107,7 @@ class ReopenAllocationServiceTests(TestCase):
                     subgroup_id=self.subgroup.id,
                 )
             ],
-            criado_por=users[1],
+            criado_por=users[0],
         )
         (vendedor_alloc,) = DistributeGoalService.distribute(
             supervisor_alloc,
@@ -143,150 +119,138 @@ class ReopenAllocationServiceTests(TestCase):
                     subgroup_id=self.subgroup.id,
                 )
             ],
-            criado_por=users[2],
+            criado_por=users[1],
         )
-        return local_alloc, supervisor_alloc, vendedor_alloc
+        return supervisor_alloc, vendedor_alloc
 
     def test_reopen_cascades_delete_and_resets_distributed_flag(self):
-        regional_alloc_a, _regional_alloc_b = self._distribute_gerente_to_both_regionais()
-        local_alloc, supervisor_alloc, vendedor_alloc = self._distribute_branch_down(
-            regional_alloc_a,
-            self.local_a,
+        local_alloc_a, _local_alloc_b = self._distribute_gerente_to_both_locais()
+        supervisor_alloc, vendedor_alloc = self._distribute_branch_down(
+            local_alloc_a,
             self.supervisor_a,
             self.vendedor_a,
-            [self.regional_a_user, self.local_a_user, self.supervisor_a_user],
+            [self.local_a_user, self.supervisor_a_user],
             qty=600,
         )
 
-        ReopenAllocationService.reopen(regional_alloc_a, criado_por=self.regional_a_user)
+        ReopenAllocationService.reopen(local_alloc_a, criado_por=self.local_a_user)
 
-        regional_alloc_a.refresh_from_db()
-        self.assertFalse(regional_alloc_a.distributed)
-        self.assertFalse(GoalAllocation.objects.filter(id=local_alloc.id).exists())
+        local_alloc_a.refresh_from_db()
+        self.assertFalse(local_alloc_a.distributed)
         self.assertFalse(GoalAllocation.objects.filter(id=supervisor_alloc.id).exists())
         self.assertFalse(GoalAllocation.objects.filter(id=vendedor_alloc.id).exists())
 
     def test_reopen_creates_audit_log_entry(self):
-        regional_alloc_a, _regional_alloc_b = self._distribute_gerente_to_both_regionais()
-        local_alloc, supervisor_alloc, vendedor_alloc = self._distribute_branch_down(
-            regional_alloc_a,
-            self.local_a,
+        local_alloc_a, _local_alloc_b = self._distribute_gerente_to_both_locais()
+        supervisor_alloc, vendedor_alloc = self._distribute_branch_down(
+            local_alloc_a,
             self.supervisor_a,
             self.vendedor_a,
-            [self.regional_a_user, self.local_a_user, self.supervisor_a_user],
+            [self.local_a_user, self.supervisor_a_user],
             qty=600,
         )
 
-        ReopenAllocationService.reopen(regional_alloc_a, criado_por=self.regional_a_user)
+        ReopenAllocationService.reopen(local_alloc_a, criado_por=self.local_a_user)
 
-        entry = AuditLogEntry.objects.get(content_type__model="goalallocation", object_id=regional_alloc_a.id)
+        entry = AuditLogEntry.objects.get(content_type__model="goalallocation", object_id=local_alloc_a.id)
         self.assertEqual(entry.action, AuditLogEntry.Action.REABERTURA)
-        self.assertEqual(entry.changed_by, self.regional_a_user)
+        self.assertEqual(entry.changed_by, self.local_a_user)
         invalidated_ids = {item["id"] for item in entry.changes["filhas_invalidadas"]}
-        self.assertEqual(invalidated_ids, {local_alloc.id, supervisor_alloc.id, vendedor_alloc.id})
+        self.assertEqual(invalidated_ids, {supervisor_alloc.id, vendedor_alloc.id})
 
     def test_reopen_is_scoped_to_the_branch_only(self):
-        regional_alloc_a, regional_alloc_b = self._distribute_gerente_to_both_regionais()
+        local_alloc_a, local_alloc_b = self._distribute_gerente_to_both_locais()
         self._distribute_branch_down(
-            regional_alloc_a,
-            self.local_a,
+            local_alloc_a,
             self.supervisor_a,
             self.vendedor_a,
-            [self.regional_a_user, self.local_a_user, self.supervisor_a_user],
+            [self.local_a_user, self.supervisor_a_user],
             qty=600,
         )
-        local_alloc_b, supervisor_alloc_b, vendedor_alloc_b = self._distribute_branch_down(
-            regional_alloc_b,
-            self.local_b,
+        supervisor_alloc_b, vendedor_alloc_b = self._distribute_branch_down(
+            local_alloc_b,
             self.supervisor_b,
             self.vendedor_b,
-            [self.regional_b_user, self.local_b_user, self.supervisor_b_user],
+            [self.local_b_user, self.supervisor_b_user],
             qty=400,
         )
 
-        ReopenAllocationService.reopen(regional_alloc_a, criado_por=self.regional_a_user)
+        ReopenAllocationService.reopen(local_alloc_a, criado_por=self.local_a_user)
 
         # O ramo B, irmão não tocado, permanece intacto.
-        self.assertTrue(GoalAllocation.objects.filter(id=local_alloc_b.id, distributed=True).exists())
-        self.assertTrue(GoalAllocation.objects.filter(id=supervisor_alloc_b.id).exists())
+        self.assertTrue(GoalAllocation.objects.filter(id=supervisor_alloc_b.id, distributed=True).exists())
         self.assertTrue(GoalAllocation.objects.filter(id=vendedor_alloc_b.id).exists())
-        regional_alloc_b.refresh_from_db()
-        self.assertTrue(regional_alloc_b.distributed)
+        local_alloc_b.refresh_from_db()
+        self.assertTrue(local_alloc_b.distributed)
 
     def test_reopen_rejects_when_caller_does_not_own_allocation(self):
-        regional_alloc_a, _regional_alloc_b = self._distribute_gerente_to_both_regionais()
+        local_alloc_a, _local_alloc_b = self._distribute_gerente_to_both_locais()
         self._distribute_branch_down(
-            regional_alloc_a,
-            self.local_a,
+            local_alloc_a,
             self.supervisor_a,
             self.vendedor_a,
-            [self.regional_a_user, self.local_a_user, self.supervisor_a_user],
+            [self.local_a_user, self.supervisor_a_user],
             qty=600,
         )
 
         with self.assertRaises(AllocationScopeError):
-            ReopenAllocationService.reopen(regional_alloc_a, criado_por=self.regional_b_user)
+            ReopenAllocationService.reopen(local_alloc_a, criado_por=self.local_b_user)
 
-        regional_alloc_a.refresh_from_db()
-        self.assertTrue(regional_alloc_a.distributed)
+        local_alloc_a.refresh_from_db()
+        self.assertTrue(local_alloc_a.distributed)
 
     def test_reopen_rejects_when_not_yet_distributed(self):
         with self.assertRaises(AllocationReopenError):
             ReopenAllocationService.reopen(self.gerente_allocation, criado_por=self.gerente_user)
 
     def test_reopen_rejects_when_cycle_is_closed(self):
-        regional_alloc_a, regional_alloc_b = self._distribute_gerente_to_both_regionais()
+        local_alloc_a, local_alloc_b = self._distribute_gerente_to_both_locais()
         self._distribute_branch_down(
-            regional_alloc_a,
-            self.local_a,
+            local_alloc_a,
             self.supervisor_a,
             self.vendedor_a,
-            [self.regional_a_user, self.local_a_user, self.supervisor_a_user],
+            [self.local_a_user, self.supervisor_a_user],
             qty=600,
         )
         self._distribute_branch_down(
-            regional_alloc_b,
-            self.local_b,
+            local_alloc_b,
             self.supervisor_b,
             self.vendedor_b,
-            [self.regional_b_user, self.local_b_user, self.supervisor_b_user],
+            [self.local_b_user, self.supervisor_b_user],
             qty=400,
         )
         CloseCycleService.close(self.cycle)
 
         with self.assertRaises(AllocationReopenError):
-            ReopenAllocationService.reopen(regional_alloc_b, criado_por=self.regional_b_user)
+            ReopenAllocationService.reopen(local_alloc_b, criado_por=self.local_b_user)
 
     def test_reopen_makes_cycle_incomplete_again_and_redistribute_closes_it_back(self):
-        regional_alloc_a, regional_alloc_b = self._distribute_gerente_to_both_regionais()
+        local_alloc_a, local_alloc_b = self._distribute_gerente_to_both_locais()
         self._distribute_branch_down(
-            regional_alloc_a,
-            self.local_a,
+            local_alloc_a,
             self.supervisor_a,
             self.vendedor_a,
-            [self.regional_a_user, self.local_a_user, self.supervisor_a_user],
+            [self.local_a_user, self.supervisor_a_user],
             qty=600,
         )
         self._distribute_branch_down(
-            regional_alloc_b,
-            self.local_b,
+            local_alloc_b,
             self.supervisor_b,
             self.vendedor_b,
-            [self.regional_b_user, self.local_b_user, self.supervisor_b_user],
+            [self.local_b_user, self.supervisor_b_user],
             qty=400,
         )
         self.assertTrue(CycleCompletenessChecker.is_complete(self.cycle))
 
-        ReopenAllocationService.reopen(regional_alloc_a, criado_por=self.regional_a_user)
+        ReopenAllocationService.reopen(local_alloc_a, criado_por=self.local_a_user)
         self.assertFalse(CycleCompletenessChecker.is_complete(self.cycle))
 
         # A mesma DistributeGoalService, sem nenhuma mudança, refaz o repasse normalmente.
         self._distribute_branch_down(
-            regional_alloc_a,
-            self.local_a,
+            local_alloc_a,
             self.supervisor_a,
             self.vendedor_a,
-            [self.regional_a_user, self.local_a_user, self.supervisor_a_user],
+            [self.local_a_user, self.supervisor_a_user],
             qty=600,
         )
 

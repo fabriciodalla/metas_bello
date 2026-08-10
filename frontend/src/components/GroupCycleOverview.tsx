@@ -2,7 +2,7 @@ import { AlertTriangle, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { GoalAllocation, GroupSuggestion, HierarchyNode, ProductGroup } from "../api/types";
-import { RegionalDistributionTable } from "./RegionalDistributionTable";
+import { GroupChildDistributionTable } from "./GroupChildDistributionTable";
 import { Sparkline } from "./Sparkline";
 import { useDistributionRows, type DistributionRow } from "./useDistributionRows";
 import { Alert } from "./ui/Alert";
@@ -19,9 +19,8 @@ import { SummaryCard } from "./ui/SummaryCard";
 interface Props {
   cycleId: number;
   ownerNodeId: number;
-  // Só o Gerente cria metas raiz a partir da sugestão P1 (grupo sem meta ainda). Regional (e
-  // qualquer outro nível reutilizando esta visão) só recebe o que já foi repassado por quem está
-  // acima — nunca cria do zero, então essa etapa fica desligada.
+  // Só o Gerente cria metas raiz a partir da sugestão P1 (grupo sem meta ainda) — é o único
+  // nível que usa esta visão hoje (ver DistributionPage).
   canCreateGoals: boolean;
   childLevelLabel: string;
   nodes: HierarchyNode[];
@@ -119,7 +118,7 @@ function CycleSummaryCards({ summary }: { summary: CycleSummary }) {
   );
 }
 
-// Soma, por alvo direto (Coordenador Regional, Local etc.), o que já foi efetivamente aplicado
+// Soma, por alvo direto (Coordenador Local), o que já foi efetivamente aplicado
 // (filhas reais de GoalAllocation já salvas) nos grupos concluídos, mais o rascunho ao vivo (não
 // salvo ainda) das caixas de edição nos grupos em andamento — acompanha a digitação em tempo
 // real, sem esperar o grupo ser concluído.
@@ -170,7 +169,7 @@ function CoordinatorTotalsCards({
 
 // Mantém o formulário de distribuição montado mesmo com o grupo recolhido, pra que o cabeçalho
 // do card continue mostrando o progresso ao vivo (kg/% ainda não salvos) sem precisar reabrir —
-// só a tabela em si (RegionalDistributionTable) fica condicionada a `expanded`.
+// só a tabela em si (GroupChildDistributionTable) fica condicionada a `expanded`.
 function PendingGroupDistribution({
   allocation,
   directChildren,
@@ -191,7 +190,7 @@ function PendingGroupDistribution({
   }, [bag.rows, onProgress]);
 
   if (!expanded) return null;
-  return <RegionalDistributionTable allocation={allocation} directChildren={directChildren} bag={bag} />;
+  return <GroupChildDistributionTable allocation={allocation} directChildren={directChildren} bag={bag} />;
 }
 
 function GroupRowCard({

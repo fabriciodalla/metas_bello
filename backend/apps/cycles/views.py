@@ -65,14 +65,14 @@ class CycleViewSet(ReadOnlyModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="vendedor-report")
     def vendedor_report(self, request, pk=None):
-        """Meta no nível Vendedor (folha, SUBGROUP — O1), achatada com o caminho até Coordenador
-        Regional — usada pela tela de Metas; mesma fonte de dados do `export` (CSV) abaixo."""
+        """Meta no nível Vendedor (folha, SUBGROUP — O1), achatada com o caminho até o
+        Gerente — usada pela tela de Metas; mesma fonte de dados do `export` (CSV) abaixo."""
         cycle = self.get_object()
         rows = VendedorAllocationReportService.rows_for_cycle(cycle)
         return Response(
             [
                 {
-                    "regional": row.regional_nome,
+                    "gerente": row.gerente_nome,
                     "local": row.local_nome,
                     "supervisor": row.supervisor_nome,
                     "vendedor": row.vendedor_nome,
@@ -97,7 +97,7 @@ class CycleViewSet(ReadOnlyModelViewSet):
         writer = csv.writer(buffer)
         writer.writerow(
             [
-                "coordenador_regional",
+                "gerente",
                 "coordenador_local",
                 "supervisor",
                 "vendedor",
@@ -111,7 +111,7 @@ class CycleViewSet(ReadOnlyModelViewSet):
         for row in rows:
             writer.writerow(
                 [
-                    row.regional_nome,
+                    row.gerente_nome,
                     row.local_nome,
                     row.supervisor_nome,
                     row.vendedor_nome,

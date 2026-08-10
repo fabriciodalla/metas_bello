@@ -30,35 +30,22 @@ class CycleApiTests(APITestCase):
         self.client.force_login(self.user)
 
     def _distribute_full_chain_to_vendedor(self):
-        """Regional->Local->Supervisor->Vendedor sob self.gerente, tudo distribuído por
+        """Local->Supervisor->Vendedor sob self.gerente, tudo distribuído por
         self.user (dono de todos os nós — atalho válido, O5 é 1:N)."""
         subgroup = ProductSubgroup.objects.create(nome="Linguiça", group=self.group)
-        regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
+        local = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
         )
-        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=regional)
         supervisor = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=local
         )
         vendedor = HierarchyNode.objects.create(
             level=HierarchyNode.Level.VENDEDOR, nome="Vendedor", parent=supervisor
         )
-        self.user.hierarchy_nodes.add(regional, local, supervisor)
+        self.user.hierarchy_nodes.add(local, supervisor)
 
-        (regional_alloc,) = DistributeGoalService.distribute(
-            self.allocation,
-            [
-                ChildAllocationSpec(
-                    owner_node_id=regional.id,
-                    quantity_kg=100,
-                    granularity=GoalAllocation.Granularity.GROUP,
-                    group_id=self.group.id,
-                )
-            ],
-            criado_por=self.user,
-        )
         (local_alloc,) = DistributeGoalService.distribute(
-            regional_alloc,
+            self.allocation,
             [
                 ChildAllocationSpec(
                     owner_node_id=local.id,
@@ -190,9 +177,9 @@ class CycleApiTests(APITestCase):
         header, row, *_ = body.splitlines()
         self.assertEqual(
             header,
-            "coordenador_regional,coordenador_local,supervisor,vendedor,grupo,subgrupo,meta_kg,ciclo,status",
+            "gerente,coordenador_local,supervisor,vendedor,grupo,subgrupo,meta_kg,ciclo,status",
         )
-        self.assertEqual(row, "Regional,Local,Supervisor,Vendedor,Embutidos,Linguiça,100,07/2026,META")
+        self.assertEqual(row, "Gerente,Local,Supervisor,Vendedor,Embutidos,Linguiça,100,07/2026,META")
 
     def test_vendedor_report_rejects_non_admin(self):
         response = self.client.get(reverse("cycle-vendedor-report", kwargs={"pk": self.cycle.pk}))
@@ -209,7 +196,7 @@ class CycleApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         row = response.data[0]
-        self.assertEqual(row["regional"], "Regional")
+        self.assertEqual(row["gerente"], "Gerente")
         self.assertEqual(row["local"], "Local")
         self.assertEqual(row["supervisor"], "Supervisor")
         self.assertEqual(row["vendedor"], "Vendedor")

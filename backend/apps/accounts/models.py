@@ -14,7 +14,7 @@ class UserManager(DjangoUserManager):
         # (testes, scripts internos) ganha um placeholder derivado do username em vez de colidir
         # com string vazia.
         user = super().create_user(
-            username, email=email or f"{username}@bello.local", password=password, **extra_fields
+            username, email=email or f"{username}@levo.local", password=password, **extra_fields
         )
         if hierarchy_node is not None:
             user.hierarchy_nodes.add(hierarchy_node)
@@ -22,7 +22,7 @@ class UserManager(DjangoUserManager):
 
     def create_superuser(self, username, email=None, password=None, hierarchy_node=None, **extra_fields):
         user = super().create_superuser(
-            username, email=email or f"{username}@bello.local", password=password, **extra_fields
+            username, email=email or f"{username}@levo.local", password=password, **extra_fields
         )
         if hierarchy_node is not None:
             user.hierarchy_nodes.add(hierarchy_node)

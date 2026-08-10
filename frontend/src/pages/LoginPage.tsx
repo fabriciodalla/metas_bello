@@ -6,7 +6,7 @@ import { ApiError } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Alert } from "../components/ui/Alert";
 import { PasswordInput } from "../components/ui/PasswordInput";
-import belloLogoWhite from "../assets/bello-logo-white.png";
+import levoLogoWhite from "../assets/levo-logo-white.png";
 import vendasFaturamentoIcon from "../assets/login-vendas-faturamento.png";
 import metasDesempenhoIcon from "../assets/login-metas-desempenho.png";
 import gestaoCarteiraClientesIcon from "../assets/login-gestao-carteira-clientes.png";
@@ -54,7 +54,7 @@ export function LoginPage() {
         <div className="login-brand-decor" aria-hidden="true" />
         <div className="login-brand-content">
           <div className="login-brand-mark-wrap">
-            <img src={belloLogoWhite} alt="Bello Alimentos" />
+            <img src={levoLogoWhite} alt="Levo Alimentos" />
             <span className="login-brand-name">Vendas</span>
           </div>
 
@@ -101,7 +101,7 @@ export function LoginPage() {
         </div>
 
         <div className="login-brand-footer">
-          <strong>Bello Alimentos.</strong>
+          <strong>Levo Alimentos.</strong>
           <span>Parceria que move resultados.</span>
         </div>
       </div>
@@ -111,7 +111,7 @@ export function LoginPage() {
           <div className="login-card-icon">
             <User size={36} />
           </div>
-          <h2 className="login-card-title">Bem-vindo ao Bello Vendas</h2>
+          <h2 className="login-card-title">Bem-vindo ao Levo Vendas</h2>
           <p className="login-card-subtitle">Acesse sua conta para continuar.</p>
 
           <form className="login-form login-form-standalone" onSubmit={handleSubmit} noValidate>
@@ -124,7 +124,7 @@ export function LoginPage() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="nome@belloalimentos.com.br"
+                  placeholder="nome@levoalimentos.com.br"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);

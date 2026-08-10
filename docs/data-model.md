@@ -1,4 +1,4 @@
-# Modelo de Dados Conceitual — Metas Bello
+# Modelo de Dados Conceitual — Metas Levo
 
 > Entry point: [PROJECT.md](./PROJECT.md). Nomenclatura **nova**, sem herança de versões anteriores.
 > Conceitual: nomes de campos são um guia para quem vai codar, não um schema final travado.
@@ -15,7 +15,7 @@ continua disponível como atalho de criação para o caso comum de um nó só.
 ### HierarchyNode
 Nó/posição da árvore organizacional.
 - `id`
-- `level` — enum: `GERENTE`, `REGIONAL`, `LOCAL`, `SUPERVISOR`, `VENDEDOR`
+- `level` — enum: `GERENTE`, `LOCAL`, `SUPERVISOR`, `VENDEDOR`
 - `parent_id` — self-FK
 - `nome/pessoa`
 - `ativo`
@@ -143,8 +143,7 @@ quando forem definidas; nenhuma estratégia consome isso automaticamente ainda.
 ## Granularidade por nível (cascata)
 | Nível | Recebe | Distribui em | Granularidade |
 |---|---|---|---|
-| Gerente | — (define global) | Regionais | GROUP |
-| Coordenador Regional | GROUP | Locais | GROUP |
+| Gerente | — (define global) | Locais | GROUP |
 | Coordenador Local | GROUP | Supervisores | SUBGROUP (quebra grupo→subgrupo) |
 | Supervisor | SUBGROUP | Vendedores | SUBGROUP |
 | Vendedor | SUBGROUP **ou** PRODUCT (ver O1) | — (folha) | SUBGROUP ou PRODUCT |

@@ -1,11 +1,11 @@
-# Arquitetura — Metas Bello
+# Arquitetura — Metas Levo
 
 > Entry point: [PROJECT.md](./PROJECT.md). Fonte de verdade: `docs/kickoff/01-problem-brief.md` e
 > `docs/kickoff/02-solution-design.md`. Projeto construído do zero — sem herança de versões anteriores.
 
 ## Estilo: monólito modular
 Não microserviços. Justificativa ligada ao brief:
-- Base de usuários pequena e conhecida (1 Gerente, 2 Regionais, 9 Locais, supervisores/vendedores —
+- Base de usuários pequena e conhecida (1 Gerente, 9 Locais, supervisores/vendedores —
   dezenas a poucas centenas).
 - O fechamento exato é uma invariante **ACID por natureza**: exige consistência transacional forte.
 - Time de manutenção enxuto.
@@ -233,10 +233,10 @@ aprovada** — P1-P4 (Decisão 6) e P5 (Decisão 7). Fórmula aprovada não sign
 continuam plugáveis por design, caso alguma precise ser revista depois.
 - **`DistributionStrategy`** — dado `total_kg` (inteiro recebido) e a lista de alvos (filhos diretos +
   contexto, ex.: histórico via `SalesHistoryProvider`), retorna `{alvo: quantidade_kg}`. Cobre
-  distribuição Regional→Local (P2), quebra Grupo→Subgrupo (P3), distribuição Supervisor→Vendedor (P4).
+  distribuição Gerente→Local (P2), quebra Grupo→Subgrupo (P3), distribuição Supervisor→Vendedor (P4).
   Implementação aprovada: `SeasonalTrendDistributionStrategy` — decomposição clássica (tendência
   linear × índice sazonal por mês, 12 meses de histórico) vira peso relativo por alvo, fechado em
-  KG inteiro via `RoundingPolicy`. Registrada como modo `AUTO` para REGIONAL/LOCAL/SUPERVISOR.
+  KG inteiro via `RoundingPolicy`. Registrada como modo `AUTO` para GERENTE/LOCAL/SUPERVISOR.
 - **`SuggestionStrategy`** — sugestão automática de metas por grupo para o Gerente (P1), a partir do
   histórico de **12 meses** (H2 resolvida — ver Decisão 6). Implementação aprovada:
   `SeasonalTrendSuggestionStrategy` (mesma decomposição tendência+sazonalidade, valor absoluto).
@@ -300,7 +300,7 @@ repasse, sem aprovação formal (hipótese H4). Implementado em `ReopenAllocatio
 | Fechamento exato (rígido) | `ClosureValidator` + serviço transacional, independente da fórmula |
 | 100% chega aos vendedores | `CycleCompletenessChecker` como gate de fechamento |
 | Isolamento de escopo por ramo | Filtro por subárvore (closure table) na camada de dados + checagem object-level |
-| Hierarquia fixa de 5 níveis, granularidade variável | `HierarchyNode.level` + `granularity` por alocação |
+| Hierarquia fixa de 4 níveis, granularidade variável | `HierarchyNode.level` + `granularity` por alocação |
 | Fórmulas plugáveis sem retrabalho | Interfaces Strategy/RoundingPolicy + registry |
 | Auditabilidade | Encadeamento `parent_allocation` + metadados de auditoria |
 | Reabertura consistente (H4) | Invalidação em cascata do ramo + retorno a "incompleto" — `ReopenAllocationService`, implementado |

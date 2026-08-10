@@ -108,7 +108,7 @@ export interface AllocationOverview {
 }
 
 export interface VendedorAllocationRow {
-  regional: string;
+  gerente: string;
   local: string;
   supervisor: string;
   vendedor: string;

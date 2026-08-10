@@ -1,7 +1,27 @@
-# Roadmap — Metas Bello
+# Roadmap — Metas Levo
 
 > Entry point: [PROJECT.md](./PROJECT.md). O que está fora de escopo nesta versão e por onde começar a
 > codificar.
+
+## Migração de código concluída — remoção do nível Coordenador Regional (Decisão 14)
+O código já reflete a hierarquia de 4 níveis (**Gerente → Coordenador Local → Supervisor →
+Vendedor**, ver [Decisão 14](./decisions.md#decisão-14--remoção-do-nível-coordenador-regional-hierarquia-passa-de-5-para-4-níveis)):
+`HierarchyNode.level` (enum sem `REGIONAL` + migração `hierarchy/0004_remove_regional_level.py`),
+`strategies.py` (registry `AUTO`/`MANUAL` para GERENTE/LOCAL/SUPERVISOR), `services.py`
+(`VendedorAllocationRow.gerente_nome`, era `regional_nome`), `seed_demo.py`, serializers/views e
+toda a suíte de testes backend/frontend foram atualizados — banco de dev tratado como resetável
+(sem dado real de nó Regional a migrar, confirmado com o usuário).
+
+**Ainda não rodado neste ambiente (Docker indisponível durante a mudança) — rodar antes de dar a
+tarefa como concluída:**
+- `docker compose exec backend python manage.py makemigrations --check` (confirmar que
+  `0004_remove_regional_level.py` cobre o `AlterField` sem gerar migração adicional) e
+  `python manage.py migrate`.
+- `docker compose exec backend black . && ruff check --fix .`
+- `docker compose exec backend python manage.py check`
+- `docker compose exec backend pytest`
+- `docker compose exec frontend npm run build` (`tsc -b && vite build`) + teste manual no
+  navegador (login, tela de distribuição Gerente→Local, Distribuir Produtos, Meta Supervisor).
 
 ## Fora de escopo nesta versão
 - **Acompanhamento de realizado vs. meta** e dashboards de performance (hipótese H1 — o MVP só
@@ -81,7 +101,7 @@ concluído nessa parte).
 - [ ] Sugestão automática por grupo baseada em histórico (fórmula aprovada — Decisão 6 — e ligada ao
       dado real via `SalesHistoryProvider` — Decisão 9 —; falta popular os mapeamentos com dados
       reais e ligar um endpoint/UI que use isso).
-- [ ] Coordenador Regional escolhe distribuição automática ou manual; ambas respeitam o fechamento.
+- [ ] Gerente escolhe distribuição automática ou manual ao repassar para o Coordenador Local; ambas respeitam o fechamento.
 - [ ] Coordenador Local quebra grupo em subgrupo respeitando o total recebido.
 - [ ] Supervisor distribui por subgrupo entre vendedores respeitando o total.
 - [ ] Login próprio (usuário/senha) associa cada usuário ao seu nível/ramo.

@@ -1,8 +1,11 @@
-# Solution Design — Distribuição de Metas Comerciais (Bello Alimentos)
+# Solution Design — Distribuição de Metas Comerciais (Levo Alimentos)
 
 > Fonte de verdade: `docs/kickoff/01-problem-brief.md`. Projeto construído do zero;
 > nenhuma decisão, nomenclatura ou modelo de versões anteriores foi reutilizado.
 > Data: 2026-07-13.
+>
+> **Revisão (2026-07-24):** hierarquia ajustada de 5 para 4 níveis (nível "Coordenador Regional"
+> removido) — ver [Decisão 14](../decisions.md#decisão-14--remoção-do-nível-coordenador-regional-hierarquia-passa-de-5-para-4-níveis).
 
 ## Resumo da Solução
 Aplicativo web interno (monólito modular) que modela a cascata de metas mensais em
@@ -35,7 +38,7 @@ desconhecido do resto do sistema.
 ## Arquitetura
 
 Estilo: **monólito modular** (não microserviços). Justificativa ligada aos
-requisitos: base de usuários pequena e conhecida (1 Gerente, 2 Regionais, 9 Locais,
+requisitos: base de usuários pequena e conhecida (1 Gerente, 9 Locais,
 supervisores/vendedores — dezenas a poucas centenas), forte necessidade de
 **consistência transacional** (o fechamento exato é uma invariante ACID por
 natureza) e time de manutenção presumivelmente enxuto. Microserviços introduziriam
@@ -189,7 +192,7 @@ Entidades principais (nomenclatura nova, sem herança de versões anteriores):
 - **User** — credenciais próprias (usuário/senha, hash), `is_admin`, e vínculo 1:1
   (ou 1:N a confirmar) a um `HierarchyNode`. O vínculo é o que ancora escopo e nível.
 - **HierarchyNode** — nó/posição da árvore organizacional. Campos: `id`,
-  `level` (enum: GERENTE, REGIONAL, LOCAL, SUPERVISOR, VENDEDOR), `parent_id`
+  `level` (enum: GERENTE, LOCAL, SUPERVISOR, VENDEDOR), `parent_id`
   (self-FK), `nome/pessoa`, `ativo`. Um único GERENTE raiz.
 - **HierarchyClosure** — closure table (`ancestor_id`, `descendant_id`, `depth`)
   para consultas O(1) de "todos os descendentes de X" (isolamento de escopo) sem
@@ -271,7 +274,7 @@ Cinco pendências de cálculo do brief, todas atrás de contratos estáveis:
 
 - **`DistributionStrategy`** — dado `total_kg` (inteiro recebido) e a lista de alvos
   (filhos diretos + contexto, ex.: histórico via `SalesHistoryProvider`), retorna
-  `{alvo: quantidade_kg}`. Cobre: distribuição Regional→Local, quebra Grupo→Subgrupo,
+  `{alvo: quantidade_kg}`. Cobre: distribuição Gerente→Local, quebra Grupo→Subgrupo,
   distribuição Supervisor→Vendedor.
 - **`SuggestionStrategy`** — sugestão automática de metas por grupo para o Gerente,
   a partir do histórico (12 meses, hipótese H2).
@@ -302,7 +305,7 @@ A exatidão é **garantida pela arquitetura, independente da fórmula** (diretri
 4. **Reabertura/edição com cascata (H4):** enquanto o ciclo está ABERTO,
    redistribuir apaga/recria as filhas diretas dentro da mesma transação validada — a
    invariante local nunca é violada nem mesmo transitoriamente. Mas quando um total
-   **intermediário** muda (ex.: Regional reabre e altera uma parcela já distribuída
+   **intermediário** muda (ex.: Coordenador Local reabre e altera uma parcela já distribuída
    para baixo), a soma local deixaria de bater com **todo o subtree** abaixo daquele
    ramo. A semântica de cascata é definida explicitamente (ver "Semântica de Cascata
    na Reabertura"): os descendentes do ramo afetado são **invalidados** e o ciclo é
@@ -387,7 +390,7 @@ A política é:
 | Fechamento exato (rígido) | `ClosureValidator` + serviço transacional, independente da fórmula |
 | 100% da meta chega aos vendedores | `CycleCompletenessChecker` como gate de fechamento: só FECHA se toda folha ativa é VENDEDOR (sem alocação intermediária pendente) |
 | Isolamento de escopo por ramo | Filtro por subárvore (closure table) na camada de dados + checagem object-level |
-| Hierarquia fixa de 5 níveis, granularidade variável | `HierarchyNode.level` + `granularity` por alocação |
+| Hierarquia fixa de 4 níveis, granularidade variável | `HierarchyNode.level` + `granularity` por alocação |
 | Fórmulas plugáveis sem retrabalho | Interfaces Strategy/RoundingPolicy + registry |
 | Auditabilidade | Encadeamento `parent_allocation` + metadados de auditoria |
 | Reabertura consistente (H4) | Invalidação em cascata do ramo alterado + retorno a "incompleto" até redistribuir |

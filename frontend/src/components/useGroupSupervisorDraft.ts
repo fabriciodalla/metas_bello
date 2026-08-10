@@ -5,7 +5,7 @@ import type { ChildAllocationInput, ChildDistributionContext, GoalAllocation, Hi
 export type SubgroupDraftRow = Record<number, number | "">; // supervisorId -> quantityKg
 
 // Distribuição em lote pra tela "Meta Supervisor": ao contrário de `useDistributionRows` (usado em
-// Gerente→Regional e Regional→Local, uma alocação por vez), aqui um Coordenador Local pode ter
+// Gerente→Local, uma alocação por vez), aqui um Coordenador Local pode ter
 // dezenas de subgrupos no mesmo grupo — exigir "Salvar" a cada um seria repetitivo. O rascunho de
 // TODOS os subgrupos do grupo selecionado fica vivo ao trocar de seleção na lateral; só é
 // descartado ao trocar de grupo/ciclo (com aviso — ver MetaSupervisorPage) ou depois de salvo. Cada

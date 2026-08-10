@@ -122,18 +122,18 @@ class CreateRootAllocationServiceTests(TestCase):
             )
 
     def test_rejects_non_gerente_level(self):
-        regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
+        local = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
         )
-        regional_user = User.objects.create_user(username="regional", password="x", hierarchy_node=regional)
+        local_user = User.objects.create_user(username="local", password="x", hierarchy_node=local)
 
         with self.assertRaises(AllocationScopeError):
             CreateRootAllocationService.create(
                 cycle=self.cycle,
-                owner_node=regional,
+                owner_node=local,
                 granularity=GoalAllocation.Granularity.GROUP,
                 quantity_kg=1200,
-                criado_por=regional_user,
+                criado_por=local_user,
                 group_id=self.group.id,
             )
 

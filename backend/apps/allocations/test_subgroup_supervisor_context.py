@@ -48,11 +48,8 @@ class SubgroupSupervisorContextTestsBase(TestCase):
         self.cycle = Cycle.objects.create(ano=2026, mes=1)
 
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
-        )
         self.local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.regional
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
         )
         self.supervisor_a = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor A", parent=self.local
@@ -192,21 +189,21 @@ class SplitGroupIntoSubgroupsServiceTests(SubgroupSupervisorContextTestsBase):
             SplitGroupIntoSubgroupsService.split(self.allocation, specs, criado_por=self.user)
 
     def test_rejects_when_owner_level_is_not_local(self):
-        regional_allocation = GoalAllocation.objects.create(
+        gerente_allocation = GoalAllocation.objects.create(
             cycle=self.cycle,
-            owner_node=self.regional,
+            owner_node=self.gerente,
             granularity=GoalAllocation.Granularity.GROUP,
             group=self.group,
             quantity_kg=1000,
             criado_por=User.objects.create_user(
-                username="regional5", password="x", hierarchy_node=self.regional
+                username="gerente5", password="x", hierarchy_node=self.gerente
             ),
         )
         specs = [SubgroupSplitSpec(subgroup_id=self.subgroup_linguica.id, quantity_kg=1000)]
 
         with self.assertRaises(AllocationScopeError):
             SplitGroupIntoSubgroupsService.split(
-                regional_allocation, specs, criado_por=regional_allocation.criado_por
+                gerente_allocation, specs, criado_por=gerente_allocation.criado_por
             )
 
     def test_rejects_when_caller_does_not_own_the_allocation(self):
@@ -246,11 +243,8 @@ class SubgroupSupervisorContextApiTests(APITestCase):
         self.subgroup = ProductSubgroup.objects.create(nome="Linguiça", group=self.group)
         self.cycle = Cycle.objects.create(ano=2026, mes=1)
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
-        )
         self.local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.regional
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
         )
         self.user = User.objects.create_user(username="local", password="x", hierarchy_node=self.local)
         self.allocation = GoalAllocation.objects.create(

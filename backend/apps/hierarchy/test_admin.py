@@ -28,17 +28,15 @@ class HierarchyNodeAdminSaveModelTests(TestCase):
         self.group = ProductGroup.objects.create(nome="Embutidos")
         self.cycle = Cycle.objects.create(ano=2026, mes=7)
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
-        )
         self.local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.regional
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
+        )
+        self.supervisor = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=self.local
         )
 
         gerente_user = User.objects.create_user(username="gerente", password="x", hierarchy_node=self.gerente)
-        regional_user = User.objects.create_user(
-            username="regional", password="x", hierarchy_node=self.regional
-        )
+        local_user = User.objects.create_user(username="local", password="x", hierarchy_node=self.local)
 
         gerente_allocation = GoalAllocation.objects.create(
             cycle=self.cycle,
@@ -48,20 +46,8 @@ class HierarchyNodeAdminSaveModelTests(TestCase):
             quantity_kg=100,
             criado_por=gerente_user,
         )
-        (self.regional_alloc,) = DistributeGoalService.distribute(
+        (self.local_alloc,) = DistributeGoalService.distribute(
             gerente_allocation,
-            [
-                ChildAllocationSpec(
-                    owner_node_id=self.regional.id,
-                    quantity_kg=100,
-                    granularity=GoalAllocation.Granularity.GROUP,
-                    group_id=self.group.id,
-                )
-            ],
-            criado_por=gerente_user,
-        )
-        DistributeGoalService.distribute(
-            self.regional_alloc,
             [
                 ChildAllocationSpec(
                     owner_node_id=self.local.id,
@@ -70,7 +56,19 @@ class HierarchyNodeAdminSaveModelTests(TestCase):
                     group_id=self.group.id,
                 )
             ],
-            criado_por=regional_user,
+            criado_por=gerente_user,
+        )
+        DistributeGoalService.distribute(
+            self.local_alloc,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=self.supervisor.id,
+                    quantity_kg=100,
+                    granularity=GoalAllocation.Granularity.GROUP,
+                    group_id=self.group.id,
+                )
+            ],
+            criado_por=local_user,
         )
 
     def _request(self):
@@ -79,36 +77,38 @@ class HierarchyNodeAdminSaveModelTests(TestCase):
         return request
 
     def test_deactivating_via_admin_triggers_reassignment(self):
-        self.local.ativo = False
+        self.supervisor.ativo = False
 
-        self.model_admin.save_model(self._request(), self.local, form=None, change=True)
+        self.model_admin.save_model(self._request(), self.supervisor, form=None, change=True)
 
-        self.regional_alloc.refresh_from_db()
-        self.assertFalse(self.regional_alloc.distributed)
+        self.local_alloc.refresh_from_db()
+        self.assertFalse(self.local_alloc.distributed)
 
     def test_reparenting_via_admin_triggers_reassignment(self):
-        outro_regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Outro Regional", parent=self.gerente
+        outro_local = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Outro Local", parent=self.gerente
         )
-        self.local.parent = outro_regional
+        self.supervisor.parent = outro_local
 
-        self.model_admin.save_model(self._request(), self.local, form=None, change=True)
+        self.model_admin.save_model(self._request(), self.supervisor, form=None, change=True)
 
-        self.regional_alloc.refresh_from_db()
-        self.assertFalse(self.regional_alloc.distributed)
+        self.local_alloc.refresh_from_db()
+        self.assertFalse(self.local_alloc.distributed)
 
     def test_unrelated_field_change_does_not_trigger_reassignment(self):
-        self.local.nome = "Local Renomeado"
+        self.supervisor.nome = "Supervisor Renomeado"
 
-        self.model_admin.save_model(self._request(), self.local, form=None, change=True)
+        self.model_admin.save_model(self._request(), self.supervisor, form=None, change=True)
 
-        self.regional_alloc.refresh_from_db()
-        self.assertTrue(self.regional_alloc.distributed)
+        self.local_alloc.refresh_from_db()
+        self.assertTrue(self.local_alloc.distributed)
 
     def test_creating_a_new_node_does_not_trigger_reassignment(self):
-        new_node = HierarchyNode(level=HierarchyNode.Level.LOCAL, nome="Novo Local", parent=self.regional)
+        new_node = HierarchyNode(
+            level=HierarchyNode.Level.SUPERVISOR, nome="Novo Supervisor", parent=self.local
+        )
 
         self.model_admin.save_model(self._request(), new_node, form=None, change=False)
 
-        self.regional_alloc.refresh_from_db()
-        self.assertTrue(self.regional_alloc.distributed)
+        self.local_alloc.refresh_from_db()
+        self.assertTrue(self.local_alloc.distributed)

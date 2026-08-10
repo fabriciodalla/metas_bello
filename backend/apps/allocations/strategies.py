@@ -15,7 +15,7 @@ from dataclasses import dataclass
 class DistributionStrategy(ABC):
     """Decide como um total_kg inteiro é dividido entre os alvos diretos de um nível.
 
-    Cobre distribuição Regional→Local (P2), quebra Grupo→Subgrupo (P3) e distribuição
+    Cobre distribuição Gerente→Local (P2), quebra Grupo→Subgrupo (P3) e distribuição
     Supervisor→Vendedor (P4). `context` é o ponto de extensão para dados auxiliares (ex.:
     histórico de vendas via SalesHistoryProvider, quando este existir).
     """
@@ -308,16 +308,16 @@ class DistributionStrategyRegistry:
 
 def _build_default_registry() -> DistributionStrategyRegistry:
     registry = DistributionStrategyRegistry()
-    for level in ("GERENTE", "REGIONAL", "LOCAL", "SUPERVISOR"):
+    for level in ("GERENTE", "LOCAL", "SUPERVISOR"):
         registry.register(
             level,
             "MANUAL",
             lambda quantities_by_target: ManualDistributionStrategy(quantities_by_target),
         )
-    # AUTO cobre P2 (Regional->Local), P3 (quebra Local->Supervisor), P4 (Supervisor->Vendedor) e,
-    # por extensão pedida pelo usuário (2026-07-22, ver Decisão 6 em docs/decisions.md), também
-    # Gerente->Regional — mesma fórmula (tendência+sazonalidade), sem inventar nada novo.
-    for level in ("GERENTE", "REGIONAL", "LOCAL", "SUPERVISOR"):
+    # AUTO cobre P2 (Gerente->Local), P3 (quebra Local->Supervisor) e P4 (Supervisor->Vendedor) —
+    # mesma fórmula (tendência+sazonalidade) nos três níveis, ver docs/decisions.md, Decisão 6 e
+    # Decisão 14 (remoção do nível Regional; P2 antes era Regional->Local).
+    for level in ("GERENTE", "LOCAL", "SUPERVISOR"):
         registry.register(
             level,
             "AUTO",

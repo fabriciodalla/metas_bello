@@ -1,4 +1,4 @@
-# Decisões-Chave — Metas Bello
+# Decisões-Chave — Metas Levo
 
 > Entry point: [PROJECT.md](./PROJECT.md). Registro das decisões de arquitetura, alternativas
 > descartadas e reversibilidade. Fonte: `docs/kickoff/02-solution-design.md`.
@@ -96,7 +96,7 @@
 - **Reversibilidade:** fácil, por design.
 
 ## Decisão 6 — Fórmula de cálculo para P1-P4: tendência + sazonalidade sobre 12 meses
-- **Escolha atual:** para as 4 pendências de proporção (P1 sugestão ao Gerente, P2 Regional→Local,
+- **Escolha atual:** para as 4 pendências de proporção (P1 sugestão ao Gerente, P2 Gerente→Local,
   P3 quebra Local→Supervisor, P4 Supervisor→Vendedor), a fórmula aprovada é uma **decomposição
   clássica multiplicativa (tendência linear × índice sazonal por mês do calendário)** sobre uma
   janela de **12 meses** de histórico, projetando o mês seguinte:
@@ -110,7 +110,8 @@
   peso relativo, normalizado pelo `RoundingPolicy` (P5) para fechar exatamente com o total recebido.
   Implementado em `SeasonalTrendSuggestionStrategy` e `SeasonalTrendDistributionStrategy`
   (`backend/apps/allocations/strategies.py`), registradas como modo `AUTO` para os níveis
-  GERENTE/REGIONAL/LOCAL/SUPERVISOR (GERENTE incluído em 2026-07-22, ver refinamento abaixo).
+  GERENTE/LOCAL/SUPERVISOR (GERENTE incluído em 2026-07-22, ver refinamento abaixo; nível REGIONAL
+  removido da hierarquia — ver Decisão 14).
 - **Limitação conhecida e aceita pelo usuário:** com apenas 12 meses (1 ano) de histórico, cada
   índice sazonal por mês do calendário vem de **uma única observação** — não distingue padrão
   sazonal real de um evento pontual naquele mês específico (uma ruptura de estoque, uma promoção).
@@ -142,7 +143,7 @@
   específicos antes de confirmar; nenhuma alocação é persistida sem esse toque humano, e o mesmo
   endpoint/serviço de `distribute` já existente cobre os dois casos (manual e auto).
 - **Refinamento (2026-07-21) — peso de P2-P4 usa sempre o histórico do GRUPO inteiro, nunca de
-  subgrupo:** para P2 (Regional→Local), P3 (quebra Local→Supervisor) e P4 (Supervisor→Vendedor), o
+  subgrupo:** para P2 (Gerente→Local), P3 (quebra Local→Supervisor) e P4 (Supervisor→Vendedor), o
   peso/proporção de cada alvo na fórmula de tendência+sazonalidade **é sempre calculado sobre o
   histórico agregado do grupo inteiro daquele alvo** — `SalesHistoryProvider.target_history(...,
   group_id=X, subgroup_id=None)` — **nunca** sobre o histórico de um subgrupo específico, mesmo nos
@@ -174,6 +175,12 @@
   workflow de sugestão revisável já descrito acima. Nenhuma mudança de frontend foi necessária: a
   UI (`DistributionForm`) já consumia `suggested_kg` de forma genérica e já exibia contexto
   histórico para GERENTE (ver open-questions.md, "Frente que já foi aberta").
+  - **Superado pela Decisão 14 (remoção do nível Coordenador Regional):** com o nível REGIONAL
+    removido da hierarquia, o repasse "Gerente→Regional" descrito acima deixa de existir como etapa
+    própria — o Gerente passa a distribuir direto para o Coordenador Local (o antigo P2,
+    Regional→Local). Na prática, as duas etapas descritas nesta revisão e no refinamento de P2-P4
+    acima colapsam numa só: Gerente→Local, cobrindo o mesmo território de P2 sem nenhuma fórmula
+    nova. Mantido aqui só como registro histórico de quando a extensão do modo `AUTO` foi pedida.
 - **Reversibilidade:** fácil — troca de `RoundingPolicy`/`DistributionStrategy` por design (Decisão 5).
 
 ## Decisão 7 — Método de arredondamento (P5): maior resto / Hamilton
@@ -244,7 +251,7 @@
   - **`SalesHistoryProvider`** (`apps/sales_history/provider.py`): usa os dois mapeamentos para
     resolver `DistributionBaseline` em séries `MonthlyQuantity` — `group_history()` soma todos os
     subgrupos mapeados de um grupo (P1); `target_history()` soma o histórico de todo Vendedor
-    descendente de um nó (via `ScopeResolver`/`HierarchyClosure` — cobre P2 Regional→Local, P3
+    descendente de um nó (via `ScopeResolver`/`HierarchyClosure` — cobre P2 Gerente→Local, P3
     Local→Supervisor e P4 Supervisor→Vendedor, cada um agregando na granularidade certa), com
     filtro opcional por grupo/subgrupo. Meses sem dado entram com quantidade zero — as estratégias
     exigem série mensal consecutiva, sem buracos.
@@ -353,10 +360,10 @@ permanece existindo, sem uso ativo, como ponto de extensão caso a decisão mude
     já tem. A lógica de resolução de nó foi extraída pra uma função module-level
     (`resolve_or_create_node`, `apps/accounts/serializers.py`), compartilhada entre o fluxo de
     posição inicial (`create`/`update`) e essas duas actions novas.
-  - **Caso de uso concreto:** um Coordenador Regional que também acumula o cargo de Coordenador
-    Local de um dos ramos abaixo dele (ou um Local que também é Supervisor de um dos seus
-    próprios Supervisors) — a mesma pessoa, dois nós na árvore, cada um com seu próprio cargo e
-    superior.
+  - **Caso de uso concreto:** um Gerente que também acumula o cargo de Coordenador
+    Local de um dos ramos abaixo dele (ou um Coordenador Local que também é Supervisor de um dos
+    seus próprios Supervisores) — a mesma pessoa, dois nós na árvore, cada um com seu próprio cargo
+    e superior.
   - **Sem tela própria ainda:** essas duas actions são só backend — não há botão em
     `UserEditModal`/`HierarchyManager` pra usá-las por enquanto (ficaria pra uma iteração futura
     de UI, se pedido). Testadas em `test_admin_can_add_second_position_to_same_user`,
@@ -409,7 +416,7 @@ permanece existindo, sem uso ativo, como ponto de extensão caso a decisão mude
     - **Usuário já tem posição:** editar cargo/superior **reparenta o mesmo nó** (nunca cria
       outro) — e o `nome` do nó é sempre resincronizado com o `username` atual, a cada salvamento.
   - **Como isso resolve a "troca de titular":** substituir quem ocupa uma posição (ex.: Alexandre
-    → Marcelo Rodrigues Cireli num Coordenador Regional) virou só **editar nome completo/login da
+    → Marcelo Rodrigues Cireli num Coordenador Local) virou só **editar nome completo/login da
     pessoa**, sem tocar em cargo/superior — não é mais uma operação de hierarquia.
   - **Alternativa descartada:** manter o seletor de nó, só liberando nós ocupados por outros
     (via alguma flag "trocar titular") — mais explícito, mas o usuário achou o fluxo de dois
@@ -462,7 +469,7 @@ permanece existindo, sem uso ativo, como ponto de extensão caso a decisão mude
   nenhum, esse volume simplesmente desaparecia do histórico por nó (`target_history`, usado em
   P2-P4 e no contexto histórico da tela de distribuição) durante o mês da cobertura.
 - **Opção descartada:** dar ao ferista um nó `HierarchyNode` próprio (nível VENDEDOR). Esbarra na
-  validação de 5 níveis fixos (`HierarchyNode.clean()`/`HierarchyNodeSerializer.validate` — pai
+  validação de níveis fixos (`HierarchyNode.clean()`/`HierarchyNodeSerializer.validate` — pai
   sempre exatamente um nível acima) se ligado direto ao Coordenador Local, e mesmo ligado a um
   Supervisor normal ele apareceria como alvo de distribuição de meta na tela de Supervisor →
   Vendedor, o que é errado (ferista não recebe meta).
@@ -502,6 +509,45 @@ permanece existindo, sem uso ativo, como ponto de extensão caso a decisão mude
   `FeristaCoverage` nenhum. Decisão explícita: não tentar adivinhar o titular dos meses sem
   cobertura cadastrada, mesmo quando o ferista só tem um titular coberto — só o que está
   cadastrado mês a mês vale.
+
+---
+
+## Decisão 14 — Remoção do nível Coordenador Regional: hierarquia passa de 5 para 4 níveis
+- **Contexto:** o produto foi originalmente desenhado (Problem Brief, ver
+  [docs/kickoff/01-problem-brief.md](./kickoff/01-problem-brief.md)) para a hierarquia de 5 níveis
+  da empresa de referência inicial: **Gerente → Coordenador Regional → Coordenador Local →
+  Supervisor → Vendedor**. Ao adaptar a aplicação para uma nova empresa, o usuário confirmou
+  (2026-07-24) que a estrutura organizacional real tem só **4 níveis**: **Gerente → Coordenador
+  Local → Supervisor → Vendedor** — não existe o nível "Regional" nessa empresa.
+- **Escolha:** remover o nível `REGIONAL` do enum `HierarchyNode.level` e de toda a cascata de
+  distribuição. O Gerente passa a distribuir a meta (granularidade GROUP) direto para os
+  Coordenadores Locais, que continuam quebrando GROUP em SUBGROUP para os Supervisores (P3), que
+  continuam distribuindo SUBGROUP entre os Vendedores (P4) — nenhuma outra etapa da cascata muda.
+- **Impacto nas 5 pendências de cálculo (P1-P5, Decisões 6 e 7):** nenhuma fórmula nova foi
+  inventada. O que antes era **duas** etapas distintas — Gerente→Regional (extensão do modo `AUTO`
+  pedida em 2026-07-22, ver Decisão 6) e P2 Regional→Local — colapsa numa etapa só, **P2
+  Gerente→Local**, reaproveitando a mesma `SeasonalTrendDistributionStrategy` +
+  `LargestRemainderRoundingPolicy` já aprovadas (peso pelo histórico do grupo inteiro do alvo,
+  nunca subgrupo — mesmo refinamento de 2026-07-21). P1 (sugestão ao Gerente), P3 (quebra
+  Local→Supervisor), P4 (Supervisor→Vendedor) e P5 (arredondamento) ficam **inalterados** — não
+  dependiam do nível Regional.
+- **Documentação atualizada em consequência:** [PROJECT.md](./PROJECT.md),
+  [architecture.md](./architecture.md), [data-model.md](./data-model.md),
+  [open-questions.md](./open-questions.md), [roadmap.md](./roadmap.md) e os documentos de kickoff
+  ([01-problem-brief.md](./kickoff/01-problem-brief.md),
+  [02-solution-design.md](./kickoff/02-solution-design.md)) — todas as referências à cascata de 5
+  níveis/ao nível `REGIONAL` foram revistas para refletir os 4 níveis atuais. Entradas anteriores
+  deste arquivo (Decisões 1-13) que mencionam "Coordenador Regional"/"Regional→Local" em narrativa
+  histórica **não foram reescritas** — descrevem decisões tomadas quando a hierarquia ainda tinha 5
+  níveis; onde a menção era uma afirmação de estado atual (enum, nível do registry `AUTO`, exemplos
+  ilustrativos), foi corrigida para os 4 níveis vigentes.
+- **Fora do escopo desta decisão:** a mudança de código (models, migração, enums, estratégias,
+  frontend, testes) ainda não foi feita — esta decisão registra só a mudança de requisito de
+  hierarquia e a atualização da documentação. Ver [open-questions.md](./open-questions.md) para o
+  levantamento dos pontos de código que passam a exigir essa migração.
+- **Reversibilidade:** média — reintroduzir o nível Regional exigiria migração de schema
+  (`HierarchyNode.level`), ajuste do registry de estratégias e reconstrução da etapa
+  Regional→Local separada de Gerente→Local; nenhuma fórmula muda, só a topologia da árvore.
 
 ---
 

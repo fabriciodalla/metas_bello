@@ -61,7 +61,7 @@ export function MetasPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Coordenador Regional</th>
+                  <th>Gerente</th>
                   <th>Coordenador Local</th>
                   <th>Supervisor</th>
                   <th>Vendedor</th>
@@ -75,7 +75,7 @@ export function MetasPage() {
               <tbody>
                 {rows.map((row, index) => (
                   <tr key={index}>
-                    <td>{row.regional}</td>
+                    <td>{row.gerente}</td>
                     <td>{row.local}</td>
                     <td>{row.supervisor}</td>
                     <td>{row.vendedor}</td>

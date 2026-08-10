@@ -17,7 +17,7 @@ class AuthApiTests(APITestCase):
         self.node = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
         self.user = User.objects.create_user(
             username="gerente",
-            email="gerente@bello.local",
+            email="gerente@levo.local",
             password="senha-forte",
             hierarchy_node=self.node,
         )
@@ -25,7 +25,7 @@ class AuthApiTests(APITestCase):
     def test_login_with_valid_credentials_returns_user_data(self):
         response = self.client.post(
             reverse("auth-login"),
-            {"email": "gerente@bello.local", "password": "senha-forte"},
+            {"email": "gerente@levo.local", "password": "senha-forte"},
             format="json",
         )
 
@@ -36,7 +36,7 @@ class AuthApiTests(APITestCase):
     def test_login_is_case_insensitive_on_email(self):
         response = self.client.post(
             reverse("auth-login"),
-            {"email": "GERENTE@BELLO.LOCAL", "password": "senha-forte"},
+            {"email": "GERENTE@LEVO.LOCAL", "password": "senha-forte"},
             format="json",
         )
 
@@ -45,7 +45,7 @@ class AuthApiTests(APITestCase):
     def test_login_with_invalid_credentials_is_rejected(self):
         response = self.client.post(
             reverse("auth-login"),
-            {"email": "gerente@bello.local", "password": "errada"},
+            {"email": "gerente@levo.local", "password": "errada"},
             format="json",
         )
 
@@ -54,7 +54,7 @@ class AuthApiTests(APITestCase):
     def test_login_with_unknown_email_is_rejected(self):
         response = self.client.post(
             reverse("auth-login"),
-            {"email": "ninguem@bello.local", "password": "qualquer"},
+            {"email": "ninguem@levo.local", "password": "qualquer"},
             format="json",
         )
 
@@ -100,17 +100,17 @@ class UserAccountApiTests(APITestCase):
 
     def test_admin_can_create_user_with_password_and_cargo(self):
         self.client.force_login(self.admin)
-        regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="placeholder", parent=self.node
+        local = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="placeholder", parent=self.node
         )
 
         response = self.client.post(
             reverse("user-account-list"),
             {
                 "username": "Novo Coordenador",
-                "email": "novo@bello.local",
+                "email": "novo@levo.local",
                 "password": "senha-forte-123",
-                "level": HierarchyNode.Level.REGIONAL,
+                "level": HierarchyNode.Level.LOCAL,
                 "parent_node_id": self.node.id,
             },
         )
@@ -119,34 +119,34 @@ class UserAccountApiTests(APITestCase):
         created = User.objects.get(username="Novo Coordenador")
         self.assertTrue(created.check_password("senha-forte-123"))
         node = created.hierarchy_nodes.get()
-        self.assertEqual(node.level, HierarchyNode.Level.REGIONAL)
+        self.assertEqual(node.level, HierarchyNode.Level.LOCAL)
         self.assertEqual(node.parent_id, self.node.id)
         self.assertEqual(node.nome, "Novo Coordenador")
         # nome não bate com o nó pré-existente ("placeholder") — não é reaproveitado, ganha o seu.
-        self.assertNotEqual(node.id, regional.id)
+        self.assertNotEqual(node.id, local.id)
 
     def test_admin_editing_cargo_updates_existing_node_in_place(self):
         self.client.force_login(self.admin)
-        regional_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional A", parent=self.node
+        local_a = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.node
         )
-        regional_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional B", parent=self.node
+        local_b = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.node
         )
-        target = User.objects.create_user(username="Alvo Original", password="x", hierarchy_node=regional_a)
+        target = User.objects.create_user(username="Alvo Original", password="x", hierarchy_node=local_a)
         original_node_id = target.hierarchy_nodes.get().id
 
         response = self.client.patch(
             reverse("user-account-detail", args=[target.id]),
-            {"level": HierarchyNode.Level.LOCAL, "parent_node_id": regional_b.id},
+            {"level": HierarchyNode.Level.SUPERVISOR, "parent_node_id": local_b.id},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         node = target.hierarchy_nodes.get()
         self.assertEqual(node.id, original_node_id)
-        self.assertEqual(node.level, HierarchyNode.Level.LOCAL)
-        self.assertEqual(node.parent_id, regional_b.id)
+        self.assertEqual(node.level, HierarchyNode.Level.SUPERVISOR)
+        self.assertEqual(node.parent_id, local_b.id)
 
     def test_editing_primary_position_reparents_oldest_node_regardless_of_m2m_add_order(self):
         """Bug real (2026-07-22): editar cargo/superior criou um nó novo em vez de reaproveitar o
@@ -156,10 +156,10 @@ class UserAccountApiTests(APITestCase):
         a principal, não importa em que ordem os `.add()` aconteceram."""
         self.client.force_login(self.admin)
         older_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Alvo", parent=self.node
+            level=HierarchyNode.Level.LOCAL, nome="Alvo", parent=self.node
         )
         newer_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Alvo", parent=older_node
+            level=HierarchyNode.Level.SUPERVISOR, nome="Alvo", parent=older_node
         )
         target = User.objects.create_user(username="Alvo", password="x")
         # Adiciona fora de ordem de criação, de propósito — sem `.order_by("id")` no backend,
@@ -168,14 +168,14 @@ class UserAccountApiTests(APITestCase):
 
         response = self.client.patch(
             reverse("user-account-detail", args=[target.id]),
-            {"level": HierarchyNode.Level.REGIONAL, "parent_node_id": self.node.id},
+            {"level": HierarchyNode.Level.LOCAL, "parent_node_id": self.node.id},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(target.hierarchy_nodes.count(), 2)  # não criou um terceiro nó
         older_node.refresh_from_db()
-        self.assertEqual(older_node.level, HierarchyNode.Level.REGIONAL)
+        self.assertEqual(older_node.level, HierarchyNode.Level.LOCAL)
         self.assertEqual(older_node.parent_id, self.node.id)
 
     def test_clearing_cargo_deactivates_the_orphaned_position(self):
@@ -184,7 +184,7 @@ class UserAccountApiTests(APITestCase):
         `remove_position` e de desligar usuário, só que via esse terceiro código-caminho."""
         self.client.force_login(self.admin)
         node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Sem Cargo Agora", parent=self.node
+            level=HierarchyNode.Level.LOCAL, nome="Sem Cargo Agora", parent=self.node
         )
         target = User.objects.create_user(username="Sem Cargo Agora", password="x", hierarchy_node=node)
 
@@ -203,16 +203,16 @@ class UserAccountApiTests(APITestCase):
         seletor manual de nó (Decisão 11 revisada)."""
         self.client.force_login(self.admin)
         imported = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Fabio Shaen", parent=self.node
+            level=HierarchyNode.Level.LOCAL, nome="Fabio Shaen", parent=self.node
         )
 
         response = self.client.post(
             reverse("user-account-list"),
             {
                 "username": "Fabio Shaen",
-                "email": "fabio@bello.local",
+                "email": "fabio@levo.local",
                 "password": "senha-forte-123",
-                "level": HierarchyNode.Level.REGIONAL,
+                "level": HierarchyNode.Level.LOCAL,
                 "parent_node_id": self.node.id,
             },
         )
@@ -226,16 +226,16 @@ class UserAccountApiTests(APITestCase):
         """A transição de trocar quem ocupa uma posição (ex.: substituir o titular de um cargo)
         é só editar nome completo/login da pessoa — sem mexer em cargo/superior."""
         self.client.force_login(self.admin)
-        regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Nome Antigo", parent=self.node
+        local = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Nome Antigo", parent=self.node
         )
-        target = User.objects.create_user(username="Nome Antigo", password="x", hierarchy_node=regional)
+        target = User.objects.create_user(username="Nome Antigo", password="x", hierarchy_node=local)
 
         response = self.client.patch(
             reverse("user-account-detail", args=[target.id]),
             {
                 "username": "Nome Novo",
-                "level": HierarchyNode.Level.REGIONAL,
+                "level": HierarchyNode.Level.LOCAL,
                 "parent_node_id": self.node.id,
             },
             format="json",
@@ -243,7 +243,7 @@ class UserAccountApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         node = target.hierarchy_nodes.get()
-        self.assertEqual(node.id, regional.id)
+        self.assertEqual(node.id, local.id)
         self.assertEqual(node.nome, "Nome Novo")
 
     def test_patching_only_parent_node_id_reparents_without_touching_level(self):
@@ -253,10 +253,8 @@ class UserAccountApiTests(APITestCase):
         acionado pela UI, mas a API aceitava silenciosamente sem efeito."""
         self.client.force_login(self.admin)
         other_gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Outro Gerente")
-        regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.node
-        )
-        target = User.objects.create_user(username="Alvo", password="x", hierarchy_node=regional)
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.node)
+        target = User.objects.create_user(username="Alvo", password="x", hierarchy_node=local)
         original_node_id = target.hierarchy_nodes.get().id
 
         response = self.client.patch(
@@ -268,7 +266,7 @@ class UserAccountApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         node = target.hierarchy_nodes.get()
         self.assertEqual(node.id, original_node_id)
-        self.assertEqual(node.level, HierarchyNode.Level.REGIONAL)
+        self.assertEqual(node.level, HierarchyNode.Level.LOCAL)
         self.assertEqual(node.parent_id, other_gerente.id)
 
     def test_patching_only_level_with_same_value_keeps_existing_parent(self):
@@ -277,29 +275,27 @@ class UserAccountApiTests(APITestCase):
         função de verdade (nível diferente) sempre exige mandar o novo superior junto, já que o
         nível de pai esperado muda; esse teste cobre só o caso de resubmissão sem mudança real."""
         self.client.force_login(self.admin)
-        regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.node
-        )
-        target = User.objects.create_user(username="Alvo", password="x", hierarchy_node=regional)
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.node)
+        target = User.objects.create_user(username="Alvo", password="x", hierarchy_node=local)
         original_node_id = target.hierarchy_nodes.get().id
 
         response = self.client.patch(
             reverse("user-account-detail", args=[target.id]),
-            {"level": HierarchyNode.Level.REGIONAL},
+            {"level": HierarchyNode.Level.LOCAL},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         node = target.hierarchy_nodes.get()
         self.assertEqual(node.id, original_node_id)
-        self.assertEqual(node.level, HierarchyNode.Level.REGIONAL)
+        self.assertEqual(node.level, HierarchyNode.Level.LOCAL)
         self.assertEqual(node.parent_id, self.node.id)
 
     def test_create_without_password_is_rejected(self):
         self.client.force_login(self.admin)
 
         response = self.client.post(
-            reverse("user-account-list"), {"username": "sem-senha", "email": "sem-senha@bello.local"}
+            reverse("user-account-list"), {"username": "sem-senha", "email": "sem-senha@levo.local"}
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -309,7 +305,7 @@ class UserAccountApiTests(APITestCase):
         posição dele — ele continuava contando como vendedor/cargo ativo na árvore."""
         self.client.force_login(self.admin)
         node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Desligado", parent=self.node
+            level=HierarchyNode.Level.LOCAL, nome="Desligado", parent=self.node
         )
         target = User.objects.create_user(username="Desligado", password="x", hierarchy_node=node)
 
@@ -324,7 +320,7 @@ class UserAccountApiTests(APITestCase):
     def test_inactivating_user_does_not_deactivate_position_still_held_by_another_active_user(self):
         self.client.force_login(self.admin)
         shared_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Compartilhado", parent=self.node
+            level=HierarchyNode.Level.LOCAL, nome="Compartilhado", parent=self.node
         )
         target = User.objects.create_user(username="Alvo", password="x")
         other_user = User.objects.create_user(username="Outro", password="x")
@@ -346,15 +342,15 @@ class UserAccountApiTests(APITestCase):
         from apps.cycles.models import Cycle
 
         self.client.force_login(self.admin)
-        regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.node
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.node)
+        supervisor = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=local
         )
-        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=regional)
         group = ProductGroup.objects.create(nome="Embutidos")
         cycle = Cycle.objects.create(ano=2026, mes=7)
         gerente_user = User.objects.create_user(username="gerente3", password="x", hierarchy_node=self.node)
-        regional_user = User.objects.create_user(username="regional3", password="x", hierarchy_node=regional)
-        target = User.objects.create_user(username="Alvo Local", password="x", hierarchy_node=local)
+        local_user = User.objects.create_user(username="local3", password="x", hierarchy_node=local)
+        target = User.objects.create_user(username="Alvo Supervisor", password="x", hierarchy_node=supervisor)
 
         gerente_alloc = GoalAllocation.objects.create(
             cycle=cycle,
@@ -364,20 +360,8 @@ class UserAccountApiTests(APITestCase):
             quantity_kg=100,
             criado_por=gerente_user,
         )
-        (regional_alloc,) = DistributeGoalService.distribute(
+        (local_alloc,) = DistributeGoalService.distribute(
             gerente_alloc,
-            [
-                ChildAllocationSpec(
-                    owner_node_id=regional.id,
-                    quantity_kg=100,
-                    granularity=GoalAllocation.Granularity.GROUP,
-                    group_id=group.id,
-                )
-            ],
-            criado_por=gerente_user,
-        )
-        DistributeGoalService.distribute(
-            regional_alloc,
             [
                 ChildAllocationSpec(
                     owner_node_id=local.id,
@@ -386,7 +370,19 @@ class UserAccountApiTests(APITestCase):
                     group_id=group.id,
                 )
             ],
-            criado_por=regional_user,
+            criado_por=gerente_user,
+        )
+        DistributeGoalService.distribute(
+            local_alloc,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=supervisor.id,
+                    quantity_kg=100,
+                    granularity=GoalAllocation.Granularity.GROUP,
+                    group_id=group.id,
+                )
+            ],
+            criado_por=local_user,
         )
 
         response = self.client.patch(
@@ -394,17 +390,17 @@ class UserAccountApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        local.refresh_from_db()
-        self.assertFalse(local.ativo)
-        regional_alloc.refresh_from_db()
-        self.assertFalse(regional_alloc.distributed)
+        supervisor.refresh_from_db()
+        self.assertFalse(supervisor.ativo)
+        local_alloc.refresh_from_db()
+        self.assertFalse(local_alloc.distributed)
 
     def test_reactivating_user_reactivates_their_deactivated_position(self):
         """Bug real (2026-07-22): readmitir alguém (is_active=False->True) não trazia o nó da
         posição dele de volta pra árvore ativa — ele reaparecia como usuário ativo, mas sumido."""
         self.client.force_login(self.admin)
         node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Readmitido", parent=self.node, ativo=False
+            level=HierarchyNode.Level.LOCAL, nome="Readmitido", parent=self.node, ativo=False
         )
         target = User.objects.create_user(
             username="Readmitido", password="x", is_active=False, hierarchy_node=node
@@ -421,7 +417,7 @@ class UserAccountApiTests(APITestCase):
     def test_reactivating_user_does_not_touch_positions_that_were_already_active(self):
         self.client.force_login(self.admin)
         node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Sempre Ativo", parent=self.node
+            level=HierarchyNode.Level.LOCAL, nome="Sempre Ativo", parent=self.node
         )
         target = User.objects.create_user(
             username="Sempre Ativo", password="x", is_active=False, hierarchy_node=node
@@ -462,42 +458,42 @@ class UserAccountApiTests(APITestCase):
 
     def test_admin_can_add_second_position_to_same_user(self):
         """Decisão 10/O5 revisada: a mesma pessoa pode acumular mais de um cargo (ex.: um
-        Coordenador Regional que também é Coordenador Local de um dos ramos abaixo dele)."""
+        Coordenador Local que também é Supervisor de um dos ramos abaixo dele)."""
         self.client.force_login(self.admin)
-        regional_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Marcelo Rodrigues Cireli", parent=self.node
+        local_node = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Marcelo Rodrigues Cireli", parent=self.node
         )
         target = User.objects.create_user(
-            username="Marcelo Rodrigues Cireli", password="x", hierarchy_node=regional_node
+            username="Marcelo Rodrigues Cireli", password="x", hierarchy_node=local_node
         )
 
         response = self.client.post(
             reverse("user-account-add-position", args=[target.id]),
-            {"level": HierarchyNode.Level.LOCAL, "parent_node_id": regional_node.id},
+            {"level": HierarchyNode.Level.SUPERVISOR, "parent_node_id": local_node.id},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(target.hierarchy_nodes.count(), 2)
-        local_node = target.hierarchy_nodes.exclude(pk=regional_node.pk).get()
-        self.assertEqual(local_node.level, HierarchyNode.Level.LOCAL)
-        self.assertEqual(local_node.parent_id, regional_node.id)
-        self.assertEqual(local_node.nome, "Marcelo Rodrigues Cireli")
+        supervisor_node = target.hierarchy_nodes.exclude(pk=local_node.pk).get()
+        self.assertEqual(supervisor_node.level, HierarchyNode.Level.SUPERVISOR)
+        self.assertEqual(supervisor_node.parent_id, local_node.id)
+        self.assertEqual(supervisor_node.nome, "Marcelo Rodrigues Cireli")
         # a posição original não foi tocada
-        regional_node.refresh_from_db()
-        self.assertEqual(regional_node.level, HierarchyNode.Level.REGIONAL)
-        self.assertEqual(regional_node.parent_id, self.node.id)
+        local_node.refresh_from_db()
+        self.assertEqual(local_node.level, HierarchyNode.Level.LOCAL)
+        self.assertEqual(local_node.parent_id, self.node.id)
 
     def test_add_position_rejects_exact_duplicate(self):
         self.client.force_login(self.admin)
-        regional_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Alvo", parent=self.node
+        local_node = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Alvo", parent=self.node
         )
-        target = User.objects.create_user(username="Alvo", password="x", hierarchy_node=regional_node)
+        target = User.objects.create_user(username="Alvo", password="x", hierarchy_node=local_node)
 
         response = self.client.post(
             reverse("user-account-add-position", args=[target.id]),
-            {"level": HierarchyNode.Level.REGIONAL, "parent_node_id": self.node.id},
+            {"level": HierarchyNode.Level.LOCAL, "parent_node_id": self.node.id},
             format="json",
         )
 
@@ -506,36 +502,36 @@ class UserAccountApiTests(APITestCase):
 
     def test_admin_can_remove_one_of_multiple_positions_without_deleting_the_node(self):
         self.client.force_login(self.admin)
-        regional_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Alvo", parent=self.node
-        )
         local_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Alvo", parent=regional_node
+            level=HierarchyNode.Level.LOCAL, nome="Alvo", parent=self.node
+        )
+        supervisor_node = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.SUPERVISOR, nome="Alvo", parent=local_node
         )
         target = User.objects.create_user(username="Alvo", password="x")
-        target.hierarchy_nodes.add(regional_node, local_node)
+        target.hierarchy_nodes.add(local_node, supervisor_node)
 
         response = self.client.delete(
-            reverse("user-account-remove-position", args=[target.id, local_node.id])
+            reverse("user-account-remove-position", args=[target.id, supervisor_node.id])
         )
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(list(target.hierarchy_nodes.all()), [regional_node])
+        self.assertEqual(list(target.hierarchy_nodes.all()), [local_node])
         # o nó em si continua existindo, só desvinculado
-        local_node.refresh_from_db()
-        self.assertTrue(HierarchyNode.objects.filter(pk=local_node.pk).exists())
+        supervisor_node.refresh_from_db()
+        self.assertTrue(HierarchyNode.objects.filter(pk=supervisor_node.pk).exists())
         # ninguém mais ocupa o nó removido -> some da árvore ativa (bug real, 2026-07-22)
-        self.assertFalse(local_node.ativo)
+        self.assertFalse(supervisor_node.ativo)
         # a posição que sobrou pro usuário não foi tocada
-        regional_node.refresh_from_db()
-        self.assertTrue(regional_node.ativo)
+        local_node.refresh_from_db()
+        self.assertTrue(local_node.ativo)
 
     def test_removing_position_still_shared_by_another_user_does_not_deactivate_it(self):
         """Um nó só desativa quando fica realmente órfão — se outro usuário ainda ocupa ele,
         remover a posição de um não pode apagar a posição do outro."""
         self.client.force_login(self.admin)
         shared_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Compartilhado", parent=self.node
+            level=HierarchyNode.Level.LOCAL, nome="Compartilhado", parent=self.node
         )
         target = User.objects.create_user(username="Alvo", password="x")
         other_user = User.objects.create_user(username="Outro", password="x")
@@ -560,16 +556,16 @@ class UserAccountApiTests(APITestCase):
         from apps.cycles.models import Cycle
 
         self.client.force_login(self.admin)
-        regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.node
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.node)
+        supervisor = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=local
         )
-        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=regional)
         group = ProductGroup.objects.create(nome="Embutidos")
         cycle = Cycle.objects.create(ano=2026, mes=7)
         gerente_user = User.objects.create_user(username="gerente2", password="x", hierarchy_node=self.node)
-        regional_user = User.objects.create_user(username="regional2", password="x", hierarchy_node=regional)
-        target = User.objects.create_user(username="Alvo Local", password="x")
-        target.hierarchy_nodes.add(local)
+        local_user = User.objects.create_user(username="local2", password="x", hierarchy_node=local)
+        target = User.objects.create_user(username="Alvo Supervisor", password="x")
+        target.hierarchy_nodes.add(supervisor)
 
         gerente_alloc = GoalAllocation.objects.create(
             cycle=cycle,
@@ -579,20 +575,8 @@ class UserAccountApiTests(APITestCase):
             quantity_kg=100,
             criado_por=gerente_user,
         )
-        (regional_alloc,) = DistributeGoalService.distribute(
+        (local_alloc,) = DistributeGoalService.distribute(
             gerente_alloc,
-            [
-                ChildAllocationSpec(
-                    owner_node_id=regional.id,
-                    quantity_kg=100,
-                    granularity=GoalAllocation.Granularity.GROUP,
-                    group_id=group.id,
-                )
-            ],
-            criado_por=gerente_user,
-        )
-        DistributeGoalService.distribute(
-            regional_alloc,
             [
                 ChildAllocationSpec(
                     owner_node_id=local.id,
@@ -601,27 +585,41 @@ class UserAccountApiTests(APITestCase):
                     group_id=group.id,
                 )
             ],
-            criado_por=regional_user,
+            criado_por=gerente_user,
+        )
+        DistributeGoalService.distribute(
+            local_alloc,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=supervisor.id,
+                    quantity_kg=100,
+                    granularity=GoalAllocation.Granularity.GROUP,
+                    group_id=group.id,
+                )
+            ],
+            criado_por=local_user,
         )
 
-        response = self.client.delete(reverse("user-account-remove-position", args=[target.id, local.id]))
+        response = self.client.delete(
+            reverse("user-account-remove-position", args=[target.id, supervisor.id])
+        )
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        local.refresh_from_db()
-        self.assertFalse(local.ativo)
-        regional_alloc.refresh_from_db()
-        self.assertFalse(regional_alloc.distributed)
+        supervisor.refresh_from_db()
+        self.assertFalse(supervisor.ativo)
+        local_alloc.refresh_from_db()
+        self.assertFalse(local_alloc.distributed)
 
 
 class PasswordResetApiTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="gerente", email="gerente@bello.local", password="senha-antiga"
+            username="gerente", email="gerente@levo.local", password="senha-antiga"
         )
 
     def test_request_with_known_email_sends_email_and_returns_generic_detail(self):
         response = self.client.post(
-            reverse("auth-password-reset"), {"email": "gerente@bello.local"}, format="json"
+            reverse("auth-password-reset"), {"email": "gerente@levo.local"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -631,7 +629,7 @@ class PasswordResetApiTests(APITestCase):
 
     def test_request_with_unknown_email_returns_same_generic_detail_and_sends_nothing(self):
         response = self.client.post(
-            reverse("auth-password-reset"), {"email": "ninguem@bello.local"}, format="json"
+            reverse("auth-password-reset"), {"email": "ninguem@levo.local"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -668,7 +666,7 @@ class PasswordResetApiTests(APITestCase):
 class PasswordChangeApiTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="gerente", email="gerente@bello.local", password="senha-antiga"
+            username="gerente", email="gerente@levo.local", password="senha-antiga"
         )
 
     def test_requires_authentication(self):

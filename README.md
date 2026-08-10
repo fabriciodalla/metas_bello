@@ -1,10 +1,10 @@
-# Metas Bello
+# Metas Levo
 
-App web interno da Bello Alimentos para distribuir metas comerciais de vendas (em KG inteiro),
+App web interno da Levo Alimentos para distribuir metas comerciais de vendas (em KG inteiro),
 em cascata, do Gerente até cada Vendedor — com fechamento exato e auditável em cada repasse.
 
 > Visão completa do produto e da arquitetura: [docs/PROJECT.md](docs/PROJECT.md).
-> Uso interno e proprietário da Bello Alimentos — sem licença pública.
+> Uso interno e proprietário da Levo Alimentos — sem licença pública.
 
 ## Stack
 
@@ -21,7 +21,7 @@ em cascata, do Gerente até cada Vendedor — com fechamento exato e auditável 
 │   ├── config/               # settings, urls, wsgi/asgi
 │   └── apps/
 │       ├── accounts/          # User customizado (login próprio, is_admin, vínculo à hierarquia)
-│       ├── hierarchy/         # HierarchyNode + HierarchyClosure (árvore de 5 níveis) + seed_demo
+│       ├── hierarchy/         # HierarchyNode + HierarchyClosure (árvore de 4 níveis) + seed_demo
 │       ├── catalog/           # ProductGroup / ProductSubgroup / Product / ExternalProductMapping
 │       ├── cycles/            # Cycle (ciclo mensal, aberto/fechado)
 │       ├── allocations/       # GoalAllocation (repasse de meta encadeado ao pai)
@@ -43,19 +43,19 @@ cp .env.example .env
 docker compose up -d
 ```
 
-A API sobe em `http://localhost:8000/`. O Django Admin fica em `http://localhost:8000/admin/`. O
-frontend (SPA React) sobe em `http://localhost:5173/`.
+A API sobe em `http://localhost:8001/`. O Django Admin fica em `http://localhost:8001/admin/`. O
+frontend (SPA React) sobe em `http://localhost:5174/`.
 
 ### Cenário de demonstração
 
-Popula um cenário mínimo (hierarquia de 5 níveis, catálogo, ciclo aberto, usuários e uma alocação
+Popula um cenário mínimo (hierarquia de 4 níveis, catálogo, ciclo aberto, usuários e uma alocação
 pendente) para explorar a tela de distribuição sem montar tudo manualmente:
 
 ```bash
 docker compose exec backend python manage.py seed_demo
 ```
 
-Cria os usuários `admin`/`admin12345` (Administrador), `regional`, `local`, `supervisor` (senha
+Cria os usuários `admin`/`admin12345` (Administrador), `gerente`, `local`, `supervisor` (senha
 `senha12345` para os três).
 
 ### Usuário Administrador

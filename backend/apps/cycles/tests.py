@@ -20,11 +20,8 @@ class CloseCycleServiceTests(TestCase):
         self.subgroup = ProductSubgroup.objects.create(nome="Linguicas", group=self.group)
 
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
-        )
         self.local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.regional
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
         )
         self.supervisor = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=self.local
@@ -35,9 +32,6 @@ class CloseCycleServiceTests(TestCase):
 
         self.gerente_user = User.objects.create_user(
             username="gerente", password="x", hierarchy_node=self.gerente
-        )
-        self.regional_user = User.objects.create_user(
-            username="regional", password="x", hierarchy_node=self.regional
         )
         self.local_user = User.objects.create_user(username="local", password="x", hierarchy_node=self.local)
         self.supervisor_user = User.objects.create_user(
@@ -54,20 +48,8 @@ class CloseCycleServiceTests(TestCase):
         )
 
     def _distribute_full_chain(self):
-        (regional_alloc,) = DistributeGoalService.distribute(
-            self.gerente_allocation,
-            [
-                ChildAllocationSpec(
-                    owner_node_id=self.regional.id,
-                    quantity_kg=100,
-                    granularity=GoalAllocation.Granularity.GROUP,
-                    group_id=self.group.id,
-                )
-            ],
-            criado_por=self.gerente_user,
-        )
         (local_alloc,) = DistributeGoalService.distribute(
-            regional_alloc,
+            self.gerente_allocation,
             [
                 ChildAllocationSpec(
                     owner_node_id=self.local.id,
@@ -76,7 +58,7 @@ class CloseCycleServiceTests(TestCase):
                     group_id=self.group.id,
                 )
             ],
-            criado_por=self.regional_user,
+            criado_por=self.gerente_user,
         )
         (supervisor_alloc,) = DistributeGoalService.distribute(
             local_alloc,
@@ -129,7 +111,7 @@ class CloseCycleServiceTests(TestCase):
 
 class EndToEndVendedorClosureTests(TestCase):
     """Critério de aceite do brief: a meta de um grupo, definida pelo Gerente, tem que chegar
-    100% (sem sobra nem falta) na base do Vendedor, passando pelos 5 níveis e pela quebra
+    100% (sem sobra nem falta) na base do Vendedor, passando pelos 4 níveis e pela quebra
     grupo->subgrupo no Local, com ramificação real em subgrupo e em vendedores."""
 
     def setUp(self):
@@ -139,11 +121,8 @@ class EndToEndVendedorClosureTests(TestCase):
         self.cycle = Cycle.objects.create(ano=2026, mes=7)
 
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.regional = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
-        )
         self.local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.regional
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
         )
         self.supervisor = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=self.local
@@ -157,9 +136,6 @@ class EndToEndVendedorClosureTests(TestCase):
 
         self.gerente_user = User.objects.create_user(
             username="gerente", password="x", hierarchy_node=self.gerente
-        )
-        self.regional_user = User.objects.create_user(
-            username="regional", password="x", hierarchy_node=self.regional
         )
         self.local_user = User.objects.create_user(username="local", password="x", hierarchy_node=self.local)
         self.supervisor_user = User.objects.create_user(
@@ -183,20 +159,8 @@ class EndToEndVendedorClosureTests(TestCase):
         return total or 0
 
     def test_goal_reaches_100_percent_of_vendedor_base(self):
-        (regional_alloc,) = DistributeGoalService.distribute(
-            self.gerente_allocation,
-            [
-                ChildAllocationSpec(
-                    owner_node_id=self.regional.id,
-                    quantity_kg=self.total_kg,
-                    granularity=GoalAllocation.Granularity.GROUP,
-                    group_id=self.group.id,
-                )
-            ],
-            criado_por=self.gerente_user,
-        )
         (local_alloc,) = DistributeGoalService.distribute(
-            regional_alloc,
+            self.gerente_allocation,
             [
                 ChildAllocationSpec(
                     owner_node_id=self.local.id,
@@ -205,7 +169,7 @@ class EndToEndVendedorClosureTests(TestCase):
                     group_id=self.group.id,
                 )
             ],
-            criado_por=self.regional_user,
+            criado_por=self.gerente_user,
         )
 
         # Local quebra grupo -> subgrupo: mesmo Supervisor recebe duas parcelas, uma por subgrupo.
@@ -289,20 +253,8 @@ class EndToEndVendedorClosureTests(TestCase):
 
     def test_incomplete_branch_is_detected_and_blocks_close(self):
         # Distribui tudo até o Supervisor, mas "esquece" de repassar o subgrupo Y aos vendedores.
-        (regional_alloc,) = DistributeGoalService.distribute(
-            self.gerente_allocation,
-            [
-                ChildAllocationSpec(
-                    owner_node_id=self.regional.id,
-                    quantity_kg=self.total_kg,
-                    granularity=GoalAllocation.Granularity.GROUP,
-                    group_id=self.group.id,
-                )
-            ],
-            criado_por=self.gerente_user,
-        )
         (local_alloc,) = DistributeGoalService.distribute(
-            regional_alloc,
+            self.gerente_allocation,
             [
                 ChildAllocationSpec(
                     owner_node_id=self.local.id,
@@ -311,7 +263,7 @@ class EndToEndVendedorClosureTests(TestCase):
                     group_id=self.group.id,
                 )
             ],
-            criado_por=self.regional_user,
+            criado_por=self.gerente_user,
         )
         supervisor_x, _supervisor_y = DistributeGoalService.distribute(
             local_alloc,

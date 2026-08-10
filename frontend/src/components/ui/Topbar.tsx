@@ -69,7 +69,7 @@ export function Topbar({ user, onLogout }: { user: User; onLogout: () => void })
   return (
     <header className="topbar">
       <div className="topbar-heading">
-        <h1 className="topbar-title">{title ?? "Bello Vendas"}</h1>
+        <h1 className="topbar-title">{title ?? "Levo Vendas"}</h1>
         {subtitle && <p className="topbar-subtitle">{subtitle}</p>}
       </div>
       <UserMenu user={user} onLogout={onLogout} />

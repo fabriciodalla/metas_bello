@@ -66,19 +66,19 @@ class LargestRemainderRoundingPolicyTests(SimpleTestCase):
 
 class DistributionStrategyRegistryTests(SimpleTestCase):
     def test_default_registry_resolves_manual_mode_for_distributing_levels(self):
-        for level in ("GERENTE", "REGIONAL", "LOCAL", "SUPERVISOR"):
+        for level in ("GERENTE", "LOCAL", "SUPERVISOR"):
             strategy = default_distribution_registry.resolve(level, "MANUAL", quantities_by_target={1: 100})
             self.assertEqual(strategy.distribute(100, [1]), {1: 100})
 
     def test_default_registry_resolves_auto_mode_for_gerente_and_p2_p3_p4_levels(self):
-        # Extensão pedida pelo usuário em 2026-07-22 (ver Decisão 6): Gerente->Regional passa a
-        # usar a mesma fórmula tendência+sazonalidade já aprovada para P2-P4, como sugestão
-        # editável — não é uma fórmula nova.
+        # Extensão pedida pelo usuário em 2026-07-22 (ver Decisão 6): Gerente->Local (P2, com o
+        # nível Regional removido — Decisão 14) usa a mesma fórmula tendência+sazonalidade já
+        # aprovada para P3-P4, como sugestão editável — não é uma fórmula nova.
         history = {
             1: _monthly_history(2024, 1, [100] * 12),
             2: _monthly_history(2024, 1, [200] * 12),
         }
-        for level in ("GERENTE", "REGIONAL", "LOCAL", "SUPERVISOR"):
+        for level in ("GERENTE", "LOCAL", "SUPERVISOR"):
             strategy = default_distribution_registry.resolve(level, "AUTO", history_by_target=history)
             result = strategy.distribute(100, [1, 2])
             self.assertEqual(sum(result.values()), 100)
