@@ -85,7 +85,7 @@ class PasswordResetRequestView(APIView):
             token = token_generator.make_token(user)
             link = f"{settings.FRONTEND_URL}/redefinir-senha/{uidb64}/{token}/"
             send_mail(
-                subject="Definir senha — Levo Vendas",
+                subject="Definir senha — Bello Vendas",
                 message=(
                     f"Olá, {user.username}!\n\n"
                     f"Use o link abaixo para definir sua senha (válido por tempo limitado):\n{link}\n\n"
@@ -161,7 +161,7 @@ class UserAccountViewSet(
     def add_position(self, request, pk=None):
         """Acrescenta mais um cargo a um usuário que já existe, sem tocar nos que ele já tem —
         é o que permite a mesma pessoa ocupar mais de uma posição na árvore (ex.: um Coordenador
-        Local que também é Supervisor de outro ramo), Decisão 10/O5 revisada."""
+        Regional que também é Coordenador Local de outro ramo), Decisão 10/O5 revisada."""
         user = self.get_object()
         serializer = AddUserPositionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

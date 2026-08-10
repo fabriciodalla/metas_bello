@@ -1,6 +1,6 @@
 param(
-    [string]$HtmlPath = (Join-Path $PSScriptRoot "Documentacao_Projeto_Metas_Levo.html"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "Documentacao_Projeto_Metas_Levo.docx")
+    [string]$HtmlPath = (Join-Path $PSScriptRoot "Documentacao_Projeto_Metas_Bello.html"),
+    [string]$OutputPath = (Join-Path $PSScriptRoot "Documentacao_Projeto_Metas_Bello.docx")
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,7 +48,7 @@ try {
         $section.PageSetup.DifferentFirstPageHeaderFooter = -1
 
         $header = $section.Headers.Item(1).Range
-        $header.Text = "METAS LEVO  |  DOCUMENTACAO DE PROJETO E DOSSIE TECNICO"
+        $header.Text = "METAS BELLO  |  DOCUMENTACAO DE PROJETO E DOSSIE TECNICO"
         $header.Font.Name = "Aptos"
         $header.Font.Size = 8
         $header.Font.Color = 6114592
@@ -71,10 +71,10 @@ try {
     # Propriedades uteis para pesquisa e governanca documental.
     try {
         $document.BuiltInDocumentProperties.Item("Title").Value =
-            "Metas Levo - Documentacao de Projeto e Dossie Tecnico"
+            "Metas Bello - Documentacao de Projeto e Dossie Tecnico"
         $document.BuiltInDocumentProperties.Item("Subject").Value =
             "Negocio, requisitos, arquitetura, infraestrutura, dados, seguranca e oportunidades de IA"
-        $document.BuiltInDocumentProperties.Item("Company").Value = "Levo Alimentos LTDA"
+        $document.BuiltInDocumentProperties.Item("Company").Value = "Bello Alimentos LTDA"
         $document.BuiltInDocumentProperties.Item("Comments").Value =
             "Documento gerado a partir do estado observado do projeto em 16/07/2026."
     } catch {

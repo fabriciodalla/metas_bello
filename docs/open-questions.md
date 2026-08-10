@@ -1,4 +1,4 @@
-# Pendências e Open Questions — Metas Levo
+# Pendências e Open Questions — Metas Bello
 
 > Entry point: [PROJECT.md](./PROJECT.md). Esta página nasceu como a **seção visível de ressalvas**
 > do plano, aprovado **COM RESSALVAS** pelo gate de qualidade — todas já foram resolvidas
@@ -16,7 +16,7 @@ aprovada não significa fórmula travada: seguem plugáveis por design, caso alg
 | # | Pendência | Onde encaixa | Status |
 |---|---|---|---|
 | P1 | Sugestão automática de metas por grupo (para o Gerente) | `SuggestionStrategy` | **RESOLVIDA** — ver Decisão 6 |
-| P2 | Distribuição automática Gerente → Coordenador Local | `DistributionStrategy` | **RESOLVIDA** — ver Decisão 6 |
+| P2 | Distribuição automática Regional → Local | `DistributionStrategy` | **RESOLVIDA** — ver Decisão 6 |
 | P3 | Quebra grupo → subgrupo pelo Coordenador Local | `DistributionStrategy` | **RESOLVIDA** — ver Decisão 6 |
 | P4 | Distribuição Supervisor → Vendedores | `DistributionStrategy` | **RESOLVIDA** — ver Decisão 6 |
 | P5 | **Método de arredondamento / rateio de resto** para fechar em KG inteiro | `RoundingPolicy` | **RESOLVIDA** — ver Decisão 7 |
@@ -84,7 +84,7 @@ produção.
 > **Estado real dos dados (2026-07-22):** `ExternalProductMapping` já está populado (101
 > registros). `ExternalSalespersonMapping` está **vazio (0 registros)** — os 86 nós VENDEDOR da
 > hierarquia real não têm nenhum vínculo com os `salesperson_name` do histórico sincronizado. É
-> por isso que `target_history` (histórico por nó — Local/Supervisor/Vendedor, usado
+> por isso que `target_history` (histórico por nó — Regional/Local/Supervisor/Vendedor, usado
 > tanto em P2-P4 quanto no contexto histórico da tela de distribuição) sempre volta vazio hoje: o
 > mecanismo de "subir" o histórico do Vendedor até qualquer ancestral via a hierarquia (closure
 > table) já está implementado e testado — falta só o vínculo Vendedor↔`salesperson_name` para ele
@@ -129,13 +129,13 @@ resolvidas e implementadas. O que resta não é mais decisão de design, é trab
 | O5 (User↔Node) | Resolvida — 1:N (Decisão 10) | Nenhum |
 
 Frente que já foi aberta, fora do escopo das 5 pendências/4 hipóteses/5 open questions originais:
-contexto histórico por alvo na tela de distribuição (Gerente→Local — decisão do
+contexto histórico por alvo na tela de distribuição (Gerente→Regional e Regional→Local — decisão do
 usuário, 2026-07-22), servido por `GET /allocations/{id}/distribution-context/`
-(`DistributionContextService`, `backend/apps/allocations/services.py`). Gerente→Local
-(P2) já liga a estratégia `AUTO` pra pré-preencher uma meta sugerida,
+(`DistributionContextService`, `backend/apps/allocations/services.py`). Tanto Gerente→Regional
+quanto Regional→Local (P2) já ligam a estratégia `AUTO` pra pré-preencher uma meta sugerida,
 fechando exato com o pai (extensão do modo `AUTO` para GERENTE também pedida pelo usuário em
-2026-07-22, ver refinamento na Decisão 6). Guia pra quando mais níveis usarem isso: P2-P4
-pesam sempre pelo histórico do grupo inteiro do alvo, nunca por subgrupo
+2026-07-22, ver refinamento na Decisão 6). Guia pra quando mais níveis usarem isso: P2-P4 (e agora
+Gerente→Regional também) pesam sempre pelo histórico do grupo inteiro do alvo, nunca por subgrupo
 (ver refinamento de 2026-07-21 na Decisão 6 em
 [decisions.md](./decisions.md#decisão-6--fórmula-de-cálculo-para-p1-p4-tendência--sazonalidade-sobre-12-meses)).
 **Sem efeito prático até a curadoria de `ExternalSalespersonMapping` (ver O3 acima)** — hoje a API

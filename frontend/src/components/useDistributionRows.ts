@@ -12,10 +12,10 @@ function emptyRow(): DistributionRow {
   return { key: crypto.randomUUID(), ownerNodeId: "", quantityKg: "" };
 }
 
-// Contexto histórico por alvo existe pra Gerente→Local e Meta Supervisor (a
+// Contexto histórico por alvo existe pra Gerente→Regional, Regional→Local e Meta Supervisor (a
 // alocação SUBGROUP dona = Local, criada por "Distribuir Produtos", distribuída aqui pros
 // Supervisores) — nos demais níveis (Supervisor→Vendedor) a distribuição segue só manual.
-export const CONTEXT_LEVELS = new Set(["GERENTE", "LOCAL"]);
+export const CONTEXT_LEVELS = new Set(["GERENTE", "REGIONAL", "LOCAL"]);
 
 export function useDistributionRows(
   allocation: GoalAllocation,

@@ -8,9 +8,10 @@ import { MetricChip } from "./ui/MetricChip";
 import { NumericKgInput } from "./ui/NumericKgInput";
 import { ProgressBar } from "./ui/ProgressBar";
 
-// CONTEXT_LEVELS (useDistributionRows.ts) só habilita este componente pra GERENTE→Local — o
-// único nível de alvo direto que aparece aqui.
+// CONTEXT_LEVELS (useDistributionRows.ts) só habilita este componente pra GERENTE→Regional e
+// Regional→Local — os únicos dois níveis de alvo direto que aparecem aqui.
 const CHILD_LEVEL_PLURAL_LABELS: Partial<Record<Level, string>> = {
+  REGIONAL: "coordenadores regionais",
   LOCAL: "coordenadores locais",
 };
 
@@ -36,7 +37,7 @@ interface Props {
   bag: DistributionRowsBag;
 }
 
-export function GroupChildDistributionTable({ allocation, directChildren, bag }: Props) {
+export function RegionalDistributionTable({ allocation, directChildren, bag }: Props) {
   const { rows, contextByNode, total, diff, error, submitting, hasDraft, updateRow, handleSubmit } = bag;
 
   const metaKg = allocation.quantity_kg;

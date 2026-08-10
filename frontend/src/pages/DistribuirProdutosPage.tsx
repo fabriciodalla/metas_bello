@@ -8,9 +8,10 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { Spinner } from "../components/ui/Spinner";
 import { useCycleAllocationsData } from "./useCycleAllocationsData";
 
-// Tela do Coordenador Local (o que importa é ter um nó LOCAL, não quem está logado): quebra
-// cada meta GROUP recebida em metas por subgrupo. Depois de salva aqui, a distribuição por
-// Supervisor de cada subgrupo acontece na tela "Meta Supervisor".
+// Tela do Coordenador Local (ou Regional que também acumula o papel pros supervisores auto
+// serviço — o que importa é ter um nó LOCAL, não quem está logado): quebra cada meta GROUP
+// recebida em metas por subgrupo. Depois de salva aqui, a distribuição por Supervisor de cada
+// subgrupo acontece na tela "Meta Supervisor".
 export function DistribuirProdutosPage() {
   const { user } = useAuth();
   const { cycles, selectedCycleId, setSelectedCycleId, allocations, loading, refresh } = useCycleAllocationsData();

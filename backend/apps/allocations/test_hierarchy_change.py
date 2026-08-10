@@ -22,11 +22,14 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
         self.cycle = Cycle.objects.create(ano=2026, mes=7)
 
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
+        self.regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
+        )
         self.local_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.gerente
+            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.regional
         )
         self.local_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.gerente
+            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.regional
         )
         self.supervisor_a = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor A", parent=self.local_a
@@ -37,6 +40,9 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
 
         self.gerente_user = User.objects.create_user(
             username="gerente", password="x", hierarchy_node=self.gerente
+        )
+        self.regional_user = User.objects.create_user(
+            username="regional", password="x", hierarchy_node=self.regional
         )
         self.local_a_user = User.objects.create_user(
             username="local_a", password="x", hierarchy_node=self.local_a
@@ -56,8 +62,20 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
         )
 
     def _distribute_full_chain(self):
-        self.local_a_alloc, self.local_b_alloc = DistributeGoalService.distribute(
+        (self.regional_alloc,) = DistributeGoalService.distribute(
             self.gerente_allocation,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=self.regional.id,
+                    quantity_kg=1000,
+                    granularity=GoalAllocation.Granularity.GROUP,
+                    group_id=self.group.id,
+                )
+            ],
+            criado_por=self.gerente_user,
+        )
+        self.local_a_alloc, self.local_b_alloc = DistributeGoalService.distribute(
+            self.regional_alloc,
             [
                 ChildAllocationSpec(
                     owner_node_id=self.local_a.id,
@@ -72,7 +90,7 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
                     group_id=self.group.id,
                 ),
             ],
-            criado_por=self.gerente_user,
+            criado_por=self.regional_user,
         )
         (self.supervisor_a_alloc,) = DistributeGoalService.distribute(
             self.local_a_alloc,
@@ -109,29 +127,29 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
             self.local_a, changed_by=self.admin_user
         )
 
-        self.gerente_allocation.refresh_from_db()
-        self.assertFalse(self.gerente_allocation.distributed)
-        # Toda a sub-árvore do Gerente (Local A E Local B) foi invalidada — não dá pra "devolver"
-        # só a fatia de Local A sem redistribuir o total do Gerente de novo.
+        self.regional_alloc.refresh_from_db()
+        self.assertFalse(self.regional_alloc.distributed)
+        # Toda a sub-árvore do Regional (Local A E Local B) foi invalidada — não dá pra "devolver"
+        # só a fatia de Local A sem redistribuir o total do Regional de novo.
         self.assertFalse(GoalAllocation.objects.filter(id=self.local_a_alloc.id).exists())
         self.assertFalse(GoalAllocation.objects.filter(id=self.local_b_alloc.id).exists())
         self.assertFalse(GoalAllocation.objects.filter(id=self.supervisor_a_alloc.id).exists())
 
     def test_reparenting_a_node_reopens_the_parent_allocation(self):
         self._distribute_full_chain()
-        outro_local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Outro Local", parent=self.gerente
+        outro_regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Outro Regional", parent=self.gerente
         )
 
-        self.supervisor_a.parent = outro_local
-        self.supervisor_a.save()
+        self.local_a.parent = outro_regional
+        self.local_a.save()
 
         HierarchyChangeReassignmentService.reassign_open_cycle_allocations(
-            self.supervisor_a, changed_by=self.admin_user
+            self.local_a, changed_by=self.admin_user
         )
 
-        self.local_a_alloc.refresh_from_db()
-        self.assertFalse(self.local_a_alloc.distributed)
+        self.regional_alloc.refresh_from_db()
+        self.assertFalse(self.regional_alloc.distributed)
 
     def test_records_audit_log_entry_with_hierarchy_change_reason(self):
         self._distribute_full_chain()
@@ -143,7 +161,7 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
         )
 
         entry = AuditLogEntry.objects.get(
-            content_type__model="goalallocation", object_id=self.gerente_allocation.id
+            content_type__model="goalallocation", object_id=self.regional_alloc.id
         )
         self.assertEqual(entry.action, AuditLogEntry.Action.REABERTURA)
         self.assertEqual(entry.changed_by, self.admin_user)
@@ -152,7 +170,7 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
 
     def test_no_effect_when_node_has_no_open_cycle_allocation(self):
         no_op_node = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Sem Meta", parent=self.gerente
+            level=HierarchyNode.Level.LOCAL, nome="Sem Meta", parent=self.regional
         )
 
         result = HierarchyChangeReassignmentService.reassign_open_cycle_allocations(
@@ -188,8 +206,20 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
             criado_por=self.gerente_user,
         )
         self._distribute_full_chain()
-        DistributeGoalService.distribute(
+        (other_regional_alloc,) = DistributeGoalService.distribute(
             other_gerente_allocation,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=self.regional.id,
+                    quantity_kg=200,
+                    granularity=GoalAllocation.Granularity.GROUP,
+                    group_id=other_group.id,
+                )
+            ],
+            criado_por=self.gerente_user,
+        )
+        DistributeGoalService.distribute(
+            other_regional_alloc,
             [
                 ChildAllocationSpec(
                     owner_node_id=self.local_a.id,
@@ -198,7 +228,7 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
                     group_id=other_group.id,
                 )
             ],
-            criado_por=self.gerente_user,
+            criado_por=self.regional_user,
         )
         # Local A agora tem duas alocações próprias (Embutidos e Frangos), com pais diferentes.
 
@@ -207,4 +237,4 @@ class HierarchyChangeReassignmentServiceTests(TestCase):
         )
 
         reopened_ids = {allocation.id for allocation in result}
-        self.assertEqual(reopened_ids, {self.gerente_allocation.id, other_gerente_allocation.id})
+        self.assertEqual(reopened_ids, {self.regional_alloc.id, other_regional_alloc.id})

@@ -1,13 +1,7 @@
-# Problem Brief — Distribuição de Metas Comerciais (Levo Alimentos)
-
-> **Revisão (2026-07-24):** a hierarquia comercial descrita abaixo foi ajustada de 5 para 4 níveis
-> (removido o nível "Coordenador Regional") para refletir a estrutura organizacional real da Levo
-> Alimentos — ver [Decisão 14](../decisions.md#decisão-14--remoção-do-nível-coordenador-regional-hierarquia-passa-de-5-para-4-níveis).
-> Projeto e empresa renomeados de "Metas Bello"/"Bello Alimentos" para "Metas Levo"/"Levo
-> Alimentos" nesta mesma data.
+# Problem Brief — Distribuição de Metas Comerciais (Bello Alimentos)
 
 ## Problema
-A Levo Alimentos precisa distribuir metas comerciais de vendas (em KG) do topo
+A Bello Alimentos precisa distribuir metas comerciais de vendas (em KG) do topo
 da operação comercial até cada vendedor individual, passando por vários níveis
 hierárquicos. Hoje esse processo — a definição da meta global e sua quebra em
 cascata até o vendedor — é feito de forma manual/dispersa, o que gera três dores
@@ -44,10 +38,11 @@ Sinais mensuráveis de sucesso (a confirmar com o usuário):
 ## Usuários / Stakeholders
 - **Gerente (1, topo):** define metas globais por GRUPO de produto (Embutidos,
   Frangos, Pescados, Revenda). Consome sugestão automática baseada em histórico.
-  Distribui direto para os Coordenadores Locais, mantendo o nível de GRUPO.
-  Escolhe distribuição automática ou manual.
-- **Coordenadores Locais (9):** recebem meta em nível de grupo do Gerente
-  e quebram para nível de SUBGRUPO, respeitando o total recebido.
+- **Coordenadores Regionais (2):** recebem metas por grupo do Gerente e
+  distribuem para Coordenadores Locais, mantendo o nível de GRUPO. Escolhem
+  distribuição automática ou manual.
+- **Coordenadores Locais (9):** recebem meta em nível de grupo do seu Coordenador
+  Regional e quebram para nível de SUBGRUPO, respeitando o total recebido.
 - **Supervisores:** recebem metas em nível de subgrupo do Coordenador Local e
   distribuem para os Vendedores sob supervisão.
 - **Vendedores:** recebem a meta final individual (consumidores do resultado).
@@ -79,9 +74,9 @@ Sinais mensuráveis de sucesso (a confirmar com o usuário):
   de outras cadeias/ramos.
 - **Fonte de histórico:** banco PostgreSQL externo (conexão a ser configurada);
   a aplicação lê histórico de vendas por produto/grupo/subgrupo.
-- **Hierarquia de níveis fixa:** Gerente → Coordenador Local → Supervisor →
-  Vendedor, com o nível de granularidade de produto mudando ao longo da cascata
-  (grupo → subgrupo → subgrupo → individual).
+- **Hierarquia de níveis fixa:** Gerente → Coordenador Regional → Coordenador
+  Local → Supervisor → Vendedor, com o nível de granularidade de produto mudando
+  ao longo da cascata (grupo → grupo → subgrupo → subgrupo → individual).
 
 ## Não-Objetivos
 - Não define, nesta fase, a **fórmula/método exato** de nenhum cálculo automático
@@ -126,7 +121,7 @@ Sinais mensuráveis de sucesso (a confirmar com o usuário):
 - **Cálculos de proporção ainda não definidos (pendência de cálculo agrupada)** —
   cinco pendências no mesmo grupo, todas dependentes da discussão de proporção em
   andamento: (1) sugestão automática por grupo, (2) distribuição automática
-  gerente→local, (3) quebra grupo→subgrupo, (4) distribuição supervisor→vendedor
+  regional→local, (3) quebra grupo→subgrupo, (4) distribuição supervisor→vendedor
   e (5) método de arredondamento/rateio de resto. Todos devem ser plugáveis. Isto
   é uma pendência de definição de cálculo, não uma pergunta em aberto ao usuário.
 - **Dependência de fonte externa (Postgres)** — disponibilidade, latência,
@@ -144,8 +139,8 @@ Sinais mensuráveis de sucesso (a confirmar com o usuário):
       hierárquico (isolamento de escopo verificável).
 - [ ] O Gerente recebe uma sugestão automática de metas por grupo baseada em
       histórico de vendas do Postgres (fórmula plugável, definida depois).
-- [ ] Gerente pode escolher distribuição automática ou manual ao repassar para o
-      Coordenador Local; ambas respeitam o fechamento exato.
+- [ ] Coordenador Regional pode escolher distribuição automática ou manual;
+      ambas respeitam o fechamento exato.
 - [ ] Coordenador Local quebra grupo em subgrupo respeitando o total recebido.
 - [ ] Supervisor distribui por subgrupo entre seus vendedores respeitando o total.
 - [ ] O fechamento exato (soma distribuída = total recebido, em KG inteiro) é

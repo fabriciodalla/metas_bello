@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
-import levoLogoWhite from "../assets/levo-logo-white.png";
+import belloLogoWhite from "../assets/bello-logo-white.png";
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -31,7 +31,7 @@ export function ForgotPasswordPage() {
       <div className="login-brand-panel">
         <div className="login-brand-content">
           <div className="login-brand-mark-wrap">
-            <img src={levoLogoWhite} alt="Levo Alimentos" />
+            <img src={belloLogoWhite} alt="Bello Alimentos" />
             <span className="login-brand-name">Vendas</span>
           </div>
         </div>

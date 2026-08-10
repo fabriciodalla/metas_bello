@@ -2,15 +2,15 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-metaslevo}
-      POSTGRES_USER: ${POSTGRES_USER:-metaslevo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metaslevo}
+      POSTGRES_DB: ${POSTGRES_DB:-metasbello}
+      POSTGRES_USER: ${POSTGRES_USER:-metasbello}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metasbello}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_HOST_PORT:-5433}:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-metaslevo}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-metasbello}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
     volumes:
       - ./backend:/app
     ports:
-      - "${WEB_HOST_PORT:-8001}:8000"
+      - "${WEB_HOST_PORT:-8000}:8000"
     env_file:
       - .env
     depends_on:
@@ -36,7 +36,7 @@ services:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
     ports:
-      - "${FRONTEND_HOST_PORT:-5174}:5173"
+      - "${FRONTEND_HOST_PORT:-5173}:5173"
     depends_on:
       - backend
 

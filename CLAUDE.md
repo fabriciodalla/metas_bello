@@ -6,15 +6,15 @@ trabalhar no código.
 
 ## O que é este projeto
 
-App web interno da Levo Alimentos que distribui metas comerciais em KG (inteiro, sem casas
-decimais) em cascata por 4 níveis hierárquicos fixos: **Gerente → Coordenador Local →
-Supervisor → Vendedor**. A regra mais crítica do sistema: em cada repasse, a
+App web interno da Bello Alimentos que distribui metas comerciais em KG (inteiro, sem casas
+decimais) em cascata por 5 níveis hierárquicos fixos: **Gerente → Coordenador Regional →
+Coordenador Local → Supervisor → Vendedor**. A regra mais crítica do sistema: em cada repasse, a
 soma distribuída para baixo deve fechar **exatamente** com o recebido de cima — sem sobra, sem
 falta. Detalhe em [docs/architecture.md](docs/architecture.md).
 
 ## Regra de ouro: não invente as fórmulas
 
-As **5 pendências de cálculo** (sugestão automática por grupo, distribuição Gerente→Local, quebra
+As **5 pendências de cálculo** (sugestão automática por grupo, distribuição Regional→Local, quebra
 grupo→subgrupo, distribuição Supervisor→Vendedor, e o método de arredondamento/rateio de resto) já
 foram todas definidas pelo usuário e implementadas — ver
 [docs/open-questions.md](docs/open-questions.md) e [docs/decisions.md](docs/decisions.md) (Decisões

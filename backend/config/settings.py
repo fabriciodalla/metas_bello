@@ -82,7 +82,7 @@ EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="naoresponda@levo.local")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="naoresponda@bello.local")
 
 # URL do frontend, usada para montar o link enviado por e-mail (ex.: /redefinir-senha/...).
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")

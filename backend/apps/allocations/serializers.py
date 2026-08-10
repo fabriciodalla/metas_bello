@@ -136,8 +136,8 @@ class GroupSuggestionSerializer(serializers.Serializer):
 
 
 class ChildDistributionContextSerializer(serializers.Serializer):
-    """Contexto histórico por alvo direto, exibido na tela de distribuição (Gerente→Local)
-    — nunca substitui a decisão manual, só informa."""
+    """Contexto histórico por alvo direto, exibido na tela de distribuição (Gerente→Regional,
+    Regional→Local) — nunca substitui a decisão manual, só informa."""
 
     owner_node_id = serializers.IntegerField()
     history = MonthlyPointSerializer(many=True)

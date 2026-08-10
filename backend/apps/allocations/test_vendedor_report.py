@@ -25,8 +25,11 @@ class VendedorAllocationReportServiceTests(TestCase):
         self.cycle = Cycle.objects.create(ano=2026, mes=7)
 
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Fabio")
+        self.regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
+        )
         self.local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.regional
         )
         self.supervisor = HierarchyNode.objects.create(
             level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=self.local
@@ -40,6 +43,9 @@ class VendedorAllocationReportServiceTests(TestCase):
 
         self.gerente_user = User.objects.create_user(
             username="gerente", password="x", hierarchy_node=self.gerente
+        )
+        self.regional_user = User.objects.create_user(
+            username="regional", password="x", hierarchy_node=self.regional
         )
         self.local_user = User.objects.create_user(username="local", password="x", hierarchy_node=self.local)
         self.supervisor_user = User.objects.create_user(
@@ -56,8 +62,20 @@ class VendedorAllocationReportServiceTests(TestCase):
         )
 
     def _distribute_full_chain(self, vendedor_kg=100):
-        (local_alloc,) = DistributeGoalService.distribute(
+        (regional_alloc,) = DistributeGoalService.distribute(
             self.gerente_allocation,
+            [
+                ChildAllocationSpec(
+                    owner_node_id=self.regional.id,
+                    quantity_kg=100,
+                    granularity=GoalAllocation.Granularity.GROUP,
+                    group_id=self.group.id,
+                )
+            ],
+            criado_por=self.gerente_user,
+        )
+        (local_alloc,) = DistributeGoalService.distribute(
+            regional_alloc,
             [
                 ChildAllocationSpec(
                     owner_node_id=self.local.id,
@@ -66,7 +84,7 @@ class VendedorAllocationReportServiceTests(TestCase):
                     group_id=self.group.id,
                 )
             ],
-            criado_por=self.gerente_user,
+            criado_por=self.regional_user,
         )
         (self.supervisor_alloc,) = DistributeGoalService.distribute(
             local_alloc,
@@ -100,7 +118,7 @@ class VendedorAllocationReportServiceTests(TestCase):
 
         self.assertEqual(len(rows), 1)
         row = rows[0]
-        self.assertEqual(row.gerente_nome, "Fabio")
+        self.assertEqual(row.regional_nome, "Regional")
         self.assertEqual(row.local_nome, "Local")
         self.assertEqual(row.supervisor_nome, "Supervisor")
         self.assertEqual(row.vendedor_nome, "Vendedor")

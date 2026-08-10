@@ -15,7 +15,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import type { User } from "../../api/types";
-import levoVWhite from "../../assets/levo-v-white.png";
+import belloBWhite from "../../assets/bello-b-white.png";
 import { distribuirMetasLabel, showsDistribuirMetas } from "../distribuicaoLabels";
 import { OVERVIEW_LEVELS, type Level } from "../../pages/admin/constants";
 
@@ -112,10 +112,10 @@ export function Sidebar({ user }: { user: User }) {
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="sidebar-brand">
         <div className="sidebar-brand-symbol" aria-hidden="true">
-          <img src={levoVWhite} alt="" className="sidebar-brand-mark" />
+          <img src={belloBWhite} alt="" className="sidebar-brand-mark" />
         </div>
         <span className="sidebar-brand-text">
-          <strong>Levo</strong>
+          <strong>Bello</strong>
           <span className="sidebar-brand-accent">Vendas</span>
         </span>
       </div>

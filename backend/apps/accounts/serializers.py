@@ -98,7 +98,7 @@ class AddUserPositionSerializer(serializers.Serializer):
     """Posição adicional pra um usuário que já existe — mesma resolução de nó de
     `resolve_or_create_node`, sem mexer nas posições que a pessoa já tem (Decisão 10/O5
     revisada, 2026-07-21): ela pode acumular cargos em ramos diferentes da árvore (ex.: um
-    Coordenador Local que também é Supervisor de outro ramo).
+    Coordenador Regional que também é Coordenador Local de outro ramo).
 
     A validação de "superior precisa ser do nível imediatamente acima" acontece só quando
     `resolve_or_create_node` precisa criar um nó novo (via `HierarchyNodeSerializer`) — quando

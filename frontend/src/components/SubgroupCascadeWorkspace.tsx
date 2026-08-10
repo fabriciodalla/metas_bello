@@ -124,7 +124,7 @@ interface Props {
 // ao trocar de grupo/ciclo (com aviso) ou depois de salvo; "Salvar distribuição" grava de uma vez
 // todo subgrupo já fechado (soma = meta), sem exigir um clique por subgrupo. Cada subgrupo
 // continua persistido pelo mesmo endpoint POST /allocations/{id}/distribute/ já usado em
-// Gerente→Local, com a mesma invariante de fechamento exato — só a
+// Gerente→Regional e Regional→Local, com a mesma invariante de fechamento exato — só a
 // orquestração muda.
 export function SubgroupCascadeWorkspace({ ownerLevel, noAccessMessage, targetLabelPlural, targetLabelSingular }: Props) {
   const { user } = useAuth();

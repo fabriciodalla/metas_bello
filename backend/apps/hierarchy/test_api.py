@@ -16,13 +16,15 @@ User = get_user_model()
 class HierarchyNodeApiTests(APITestCase):
     def setUp(self):
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.local_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=self.gerente
+        self.regional_a = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional A", parent=self.gerente
         )
-        self.local_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=self.gerente
+        self.regional_b = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional B", parent=self.gerente
         )
-        self.user_a = User.objects.create_user(username="user_a", password="x", hierarchy_node=self.local_a)
+        self.user_a = User.objects.create_user(
+            username="user_a", password="x", hierarchy_node=self.regional_a
+        )
 
     def test_requires_authentication(self):
         response = self.client.get(reverse("hierarchy-node-list"))
@@ -36,8 +38,8 @@ class HierarchyNodeApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         ids = {item["id"] for item in response.data}
-        self.assertEqual(ids, {self.local_a.id})
-        self.assertNotIn(self.local_b.id, ids)
+        self.assertEqual(ids, {self.regional_a.id})
+        self.assertNotIn(self.regional_b.id, ids)
 
 
 class HierarchyNodeAdminApiTests(APITestCase):
@@ -46,18 +48,20 @@ class HierarchyNodeAdminApiTests(APITestCase):
 
     def setUp(self):
         self.gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        self.local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.gerente
+        self.regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=self.gerente
         )
         self.admin = User.objects.create_user(username="admin", password="x", is_admin=True)
-        self.plain_user = User.objects.create_user(username="user", password="x", hierarchy_node=self.local)
+        self.plain_user = User.objects.create_user(
+            username="user", password="x", hierarchy_node=self.regional
+        )
 
     def test_non_admin_cannot_create_node(self):
         self.client.force_login(self.plain_user)
 
         response = self.client.post(
             reverse("hierarchy-node-list"),
-            {"level": HierarchyNode.Level.SUPERVISOR, "nome": "Supervisor X", "parent": self.local.id},
+            {"level": HierarchyNode.Level.LOCAL, "nome": "Local X", "parent": self.regional.id},
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -67,18 +71,18 @@ class HierarchyNodeAdminApiTests(APITestCase):
 
         response = self.client.post(
             reverse("hierarchy-node-list"),
-            {"level": HierarchyNode.Level.SUPERVISOR, "nome": "Supervisor X", "parent": self.local.id},
+            {"level": HierarchyNode.Level.LOCAL, "nome": "Local X", "parent": self.regional.id},
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(HierarchyNode.objects.filter(nome="Supervisor X", parent=self.local).exists())
+        self.assertTrue(HierarchyNode.objects.filter(nome="Local X", parent=self.regional).exists())
 
     def test_rejects_parent_of_wrong_level(self):
         self.client.force_login(self.admin)
 
         response = self.client.post(
             reverse("hierarchy-node-list"),
-            {"level": HierarchyNode.Level.VENDEDOR, "nome": "Vendedor X", "parent": self.local.id},
+            {"level": HierarchyNode.Level.SUPERVISOR, "nome": "Supervisor X", "parent": self.regional.id},
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -88,7 +92,7 @@ class HierarchyNodeAdminApiTests(APITestCase):
 
         response = self.client.post(
             reverse("hierarchy-node-list"),
-            {"level": HierarchyNode.Level.GERENTE, "nome": "Outro Gerente", "parent": self.local.id},
+            {"level": HierarchyNode.Level.GERENTE, "nome": "Outro Gerente", "parent": self.regional.id},
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -97,17 +101,17 @@ class HierarchyNodeAdminApiTests(APITestCase):
         """A API (diferente do Django Admin) não chamava `full_clean()` — um nó podia virar pai
         de si mesmo sem barrar (achado investigando um bug real de duplicação de nó, 2026-07-22)."""
         self.client.force_login(self.admin)
-        supervisor = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=self.local
+        local = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.regional
         )
 
         response = self.client.patch(
-            reverse("hierarchy-node-detail", args=[supervisor.id]), {"parent": supervisor.id}, format="json"
+            reverse("hierarchy-node-detail", args=[local.id]), {"parent": local.id}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        supervisor.refresh_from_db()
-        self.assertEqual(supervisor.parent_id, self.local.id)
+        local.refresh_from_db()
+        self.assertEqual(local.parent_id, self.regional.id)
 
     def test_rejects_non_gerente_without_parent(self):
         self.client.force_login(self.admin)
@@ -127,7 +131,7 @@ class HierarchyNodeAdminApiTests(APITestCase):
         # Nível/pai inconsistente (VENDEDOR com pai LOCAL, deveria ser SUPERVISOR) — o model não
         # impede isso, só o serializer; simula um resto de dado já existente no banco.
         inconsistent = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.VENDEDOR, nome="Órfão Inconsistente", parent=self.local
+            level=HierarchyNode.Level.VENDEDOR, nome="Órfão Inconsistente", parent=self.regional
         )
 
         response = self.client.patch(
@@ -141,11 +145,13 @@ class HierarchyNodeAdminApiTests(APITestCase):
     def test_deactivating_via_api_triggers_reassignment(self):
         group = ProductGroup.objects.create(nome="Embutidos")
         cycle = Cycle.objects.create(ano=2026, mes=7)
-        supervisor = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=self.local
+        local = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.LOCAL, nome="Local", parent=self.regional
         )
         gerente_user = User.objects.create_user(username="gerente", password="x", hierarchy_node=self.gerente)
-        local_user = User.objects.create_user(username="local", password="x", hierarchy_node=self.local)
+        regional_user = User.objects.create_user(
+            username="regional", password="x", hierarchy_node=self.regional
+        )
         gerente_alloc = GoalAllocation.objects.create(
             cycle=cycle,
             owner_node=self.gerente,
@@ -154,11 +160,11 @@ class HierarchyNodeAdminApiTests(APITestCase):
             quantity_kg=100,
             criado_por=gerente_user,
         )
-        (local_alloc,) = DistributeGoalService.distribute(
+        (regional_alloc,) = DistributeGoalService.distribute(
             gerente_alloc,
             [
                 ChildAllocationSpec(
-                    owner_node_id=self.local.id,
+                    owner_node_id=self.regional.id,
                     quantity_kg=100,
                     granularity=GoalAllocation.Granularity.GROUP,
                     group_id=group.id,
@@ -167,26 +173,26 @@ class HierarchyNodeAdminApiTests(APITestCase):
             criado_por=gerente_user,
         )
         DistributeGoalService.distribute(
-            local_alloc,
+            regional_alloc,
             [
                 ChildAllocationSpec(
-                    owner_node_id=supervisor.id,
+                    owner_node_id=local.id,
                     quantity_kg=100,
                     granularity=GoalAllocation.Granularity.GROUP,
                     group_id=group.id,
                 )
             ],
-            criado_por=local_user,
+            criado_por=regional_user,
         )
 
         self.client.force_login(self.admin)
         response = self.client.patch(
-            reverse("hierarchy-node-detail", args=[supervisor.id]), {"ativo": False}, format="json"
+            reverse("hierarchy-node-detail", args=[local.id]), {"ativo": False}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        local_alloc.refresh_from_db()
-        self.assertFalse(local_alloc.distributed)
+        regional_alloc.refresh_from_db()
+        self.assertFalse(regional_alloc.distributed)
 
 
 class FeristaCoverageApiTests(APITestCase):

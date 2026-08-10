@@ -1,18 +1,18 @@
-# Metas Levo — Distribuição de Metas Comerciais
+# Metas Bello — Distribuição de Metas Comerciais
 
-> App web interno da Levo Alimentos para distribuir metas comerciais de vendas (em KG inteiro),
+> App web interno da Bello Alimentos para distribuir metas comerciais de vendas (em KG inteiro),
 > em cascata, do Gerente até cada Vendedor — com fechamento exato e auditável em cada repasse.
 
 ## Problema que resolve
-Hoje a Levo quebra a meta comercial global até o vendedor de forma manual/dispersa, o que gera
+Hoje a Bello quebra a meta comercial global até o vendedor de forma manual/dispersa, o que gera
 risco de fechamento incorreto (sobra/falta entre níveis), falta de base histórica para sugerir
 números realistas e falta de isolamento de escopo entre ramos da hierarquia. O objetivo é uma
 distribuição **auditável, exata (100% distribuída até a ponta) e informada por histórico**.
 
 ## Como funciona (visão de 30 segundos)
-Uma meta global em KG por grupo de produto desce por 4 níveis fixos
-(**Gerente → Coordenador Local → Supervisor → Vendedor**), com a
-granularidade de produto mudando ao longo do caminho (grupo → subgrupo → subgrupo →
+Uma meta global em KG por grupo de produto desce por 5 níveis fixos
+(**Gerente → Coordenador Regional → Coordenador Local → Supervisor → Vendedor**), com a
+granularidade de produto mudando ao longo do caminho (grupo → grupo → subgrupo → subgrupo →
 individual). Cada repasse é uma alocação de meta encadeada ao pai. Uma **invariante de fechamento
 exato** (validação transacional independente da fórmula) garante que a soma distribuída bate com o
 recebido em cada nível, e uma **checagem de completude** garante que 100% chega ao Vendedor antes de
@@ -62,5 +62,5 @@ o mesmo padrão de confirmação explícita vale daqui pra frente.
 O núcleo de backend, o frontend e as 10 decisões de arquitetura/fórmula já estão implementados —
 ver o passo a passo completo em [roadmap.md](./roadmap.md#próximos-passos-de-codificação). Resumo
 do que falta hoje, puramente operacional (nenhuma decisão de design pendente):
-- Popular `ExternalProductMapping`/`ExternalSalespersonMapping` com dados reais da Levo (O3).
+- Popular `ExternalProductMapping`/`ExternalSalespersonMapping` com dados reais da Bello (O3).
 - Um endpoint/UI que use as estratégias `AUTO` (P1-P4) para gerar sugestão de fato, hoje só a via manual está exposta.

@@ -31,13 +31,15 @@ export function DistributionPage() {
 
   const myNodeIds = useMemo(() => new Set(user?.hierarchy_nodes.map((n) => n.id) ?? []), [user]);
   const gerenteNode = useMemo(() => user?.hierarchy_nodes.find((n) => n.level === "GERENTE"), [user]);
+  const regionalNode = useMemo(() => user?.hierarchy_nodes.find((n) => n.level === "REGIONAL"), [user]);
   const supervisorNode = useMemo(() => user?.hierarchy_nodes.find((n) => n.level === "SUPERVISOR"), [user]);
   const localNode = useMemo(() => user?.hierarchy_nodes.find((n) => n.level === "LOCAL"), [user]);
 
-  // Gerente→Local (P1: sugestão -> criação -> distribuição) ganha a visão unificada
-  // GroupCycleOverview logo abaixo; as listas genéricas só cobrem o que sobra (outros níveis, ou
-  // um usuário com mais de um nó vinculado) para não duplicar o mesmo item nas duas telas.
-  const overviewNode = gerenteNode;
+  // Gerente→Regional (P1: sugestão -> criação -> distribuição) e Regional→Local (só recebe e
+  // distribui, sem sugestão de meta raiz) ganham a mesma visão unificada GroupCycleOverview logo
+  // abaixo; as listas genéricas só cobrem o que sobra (outros níveis, ou um usuário com mais de
+  // um nó vinculado) para não duplicar o mesmo item nas duas telas.
+  const overviewNode = gerenteNode ?? regionalNode;
   const canCreateGoals = !!gerenteNode;
 
   const pending = useMemo(
@@ -69,7 +71,7 @@ export function DistributionPage() {
       ),
     [allocations, overviewNode, canCreateGoals],
   );
-  // Fica oculta pra quem só tem Gerente (GroupCycleOverview já cobre tudo, lista vazia
+  // Fica oculta pra quem só tem Regional/Gerente (GroupCycleOverview já cobre tudo, lista vazia
   // aqui) e aparece pra quem também tem outro nó com pendência fora do fluxo de subgrupo do Local.
   const showGenericLists = !overviewNode || pending.length > 0 || done.length > 0;
 
@@ -78,14 +80,14 @@ export function DistributionPage() {
     setExpandedId(null);
   }
 
-  // Coordenador Local puro (sem Gerente/Supervisor) não tem mais uso pra esta tela — o
+  // Coordenador Local puro (sem Gerente/Regional/Supervisor) não tem mais uso pra esta tela — o
   // fluxo dele inteiro já vive em "Distribuir Produtos"/"Meta Supervisor".
-  if (!gerenteNode && !supervisorNode && localNode) {
+  if (!gerenteNode && !regionalNode && !supervisorNode && localNode) {
     return <Navigate to="/distribuicao/distribuir-produtos" replace />;
   }
-  // Supervisor puro (sem Gerente/Local) não tem mais uso pra esta tela — o fluxo dele
+  // Supervisor puro (sem Gerente/Regional/Local) não tem mais uso pra esta tela — o fluxo dele
   // inteiro já vive em "Meta Vendedor".
-  if (!gerenteNode && !localNode && supervisorNode) {
+  if (!gerenteNode && !regionalNode && !localNode && supervisorNode) {
     return <Navigate to="/distribuicao/meta-vendedor" replace />;
   }
 
@@ -142,7 +144,7 @@ export function DistributionPage() {
           cycleId={selectedCycleId}
           ownerNodeId={overviewNode.id}
           canCreateGoals={canCreateGoals}
-          childLevelLabel="coordenador local"
+          childLevelLabel={gerenteNode ? "coordenador regional" : "coordenador local"}
           nodes={nodes}
           myAllocations={myAllocations}
           allAllocations={allocations}

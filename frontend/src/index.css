@@ -1,5 +1,5 @@
 :root {
-  /* Paleta institucional herdada do projeto original, com identidade Levo. */
+  /* Paleta institucional Bello Alimentos */
   --color-primary: #006b3c;
   --color-primary-dark: #004f32;
   --color-primary-hover: #004f32;
@@ -817,7 +817,7 @@ button {
   margin-top: var(--space-2);
 }
 
-/* ---------- Contexto histórico por alvo (Gerente→Local) ---------- */
+/* ---------- Contexto histórico por alvo (Gerente→Regional, Regional→Local) ---------- */
 
 .dist-context-cell {
   display: flex;

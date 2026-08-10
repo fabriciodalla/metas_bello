@@ -28,8 +28,8 @@ interface Props {
 }
 
 // Distribuição genérica (linhas livres, destino selecionável) usada pelo único nível sem tela
-// dedicada — Supervisor→Vendedor, sem contexto histórico. Gerente→Local usa
-// GroupChildDistributionTable (renderizado em GroupCycleOverview); a quebra do Coordenador Local
+// dedicada — Supervisor→Vendedor, sem contexto histórico. Gerente→Regional e Regional→Local usam
+// RegionalDistributionTable (renderizado em GroupCycleOverview); a quebra do Coordenador Local
 // (grupo→subgrupo→supervisor) tem suas próprias telas, "Distribuir Produtos" e "Meta Supervisor".
 export function DistributionForm({ allocation, directChildren, onDistributed }: Props) {
   const {

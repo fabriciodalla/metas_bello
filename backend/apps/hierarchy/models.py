@@ -19,6 +19,7 @@ class HierarchyNodeQuerySet(models.QuerySet):
 class HierarchyNode(models.Model):
     class Level(models.TextChoices):
         GERENTE = "GERENTE", "Gerente"
+        REGIONAL = "REGIONAL", "Coordenador Regional"
         LOCAL = "LOCAL", "Coordenador Local"
         SUPERVISOR = "SUPERVISOR", "Supervisor"
         VENDEDOR = "VENDEDOR", "Vendedor"

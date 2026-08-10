@@ -7,65 +7,65 @@ from .models import ExternalSalespersonMapping, FeristaCoverage, HierarchyClosur
 
 class HierarchyNodeTests(TestCase):
     def test_create_root_gerente_node(self):
-        node = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente Levo")
+        node = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente Bello")
         self.assertIsNone(node.parent)
         self.assertTrue(node.ativo)
 
     def test_child_node_links_to_parent(self):
-        gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente Levo")
-        local = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local Curitiba", parent=gerente
+        gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente Bello")
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional Sul", parent=gerente
         )
-        self.assertEqual(local.parent, gerente)
-        self.assertIn(local, gerente.children.all())
+        self.assertEqual(regional.parent, gerente)
+        self.assertIn(regional, gerente.children.all())
 
 
 class HierarchyClosureTests(TestCase):
     def test_closure_includes_self_and_all_ancestors(self):
         gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=gerente)
-        supervisor = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=local
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=gerente
         )
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=regional)
 
-        ancestors_of_supervisor = set(
-            HierarchyClosure.objects.filter(descendant=supervisor).values_list("ancestor_id", flat=True)
+        ancestors_of_local = set(
+            HierarchyClosure.objects.filter(descendant=local).values_list("ancestor_id", flat=True)
         )
-        self.assertEqual(ancestors_of_supervisor, {gerente.id, local.id, supervisor.id})
+        self.assertEqual(ancestors_of_local, {gerente.id, regional.id, local.id})
 
         descendants_of_gerente = set(
             HierarchyClosure.objects.filter(ancestor=gerente).values_list("descendant_id", flat=True)
         )
-        self.assertEqual(descendants_of_gerente, {gerente.id, local.id, supervisor.id})
+        self.assertEqual(descendants_of_gerente, {gerente.id, regional.id, local.id})
 
     def test_closure_updates_when_node_is_reparented(self):
         gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        local_a = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local A", parent=gerente
+        regional_a = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional A", parent=gerente
         )
-        local_b = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.LOCAL, nome="Local B", parent=gerente
+        regional_b = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional B", parent=gerente
         )
-        supervisor = HierarchyNode.objects.create(
-            level=HierarchyNode.Level.SUPERVISOR, nome="Supervisor", parent=local_a
-        )
+        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=regional_a)
 
-        supervisor.parent = local_b
-        supervisor.save()
+        local.parent = regional_b
+        local.save()
 
-        ancestors_of_supervisor = set(
-            HierarchyClosure.objects.filter(descendant=supervisor).values_list("ancestor_id", flat=True)
+        ancestors_of_local = set(
+            HierarchyClosure.objects.filter(descendant=local).values_list("ancestor_id", flat=True)
         )
-        self.assertEqual(ancestors_of_supervisor, {gerente.id, local_b.id, supervisor.id})
-        self.assertNotIn(local_a.id, ancestors_of_supervisor)
+        self.assertEqual(ancestors_of_local, {gerente.id, regional_b.id, local.id})
+        self.assertNotIn(regional_a.id, ancestors_of_local)
 
     def test_closure_row_removed_when_node_is_deleted(self):
         gerente = HierarchyNode.objects.create(level=HierarchyNode.Level.GERENTE, nome="Gerente")
-        local = HierarchyNode.objects.create(level=HierarchyNode.Level.LOCAL, nome="Local", parent=gerente)
+        regional = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.REGIONAL, nome="Regional", parent=gerente
+        )
 
-        local.delete()
+        regional.delete()
 
-        self.assertFalse(HierarchyClosure.objects.filter(descendant_id=local.id).exists())
+        self.assertFalse(HierarchyClosure.objects.filter(descendant_id=regional.id).exists())
 
 
 class ExternalSalespersonMappingTests(TestCase):

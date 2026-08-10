@@ -296,7 +296,7 @@ class CycleCompletenessChecker:
 
 @dataclass(frozen=True)
 class VendedorAllocationRow:
-    gerente_nome: str
+    regional_nome: str
     local_nome: str
     supervisor_nome: str
     vendedor_nome: str
@@ -308,7 +308,7 @@ class VendedorAllocationRow:
 
 class VendedorAllocationReportService:
     """Achata a árvore de alocações do ciclo até a folha (Vendedor, sempre SUBGROUP — O1) numa
-    linha por alocação, com o caminho completo até o Gerente. Fonte única tanto da
+    linha por alocação, com o caminho completo até Coordenador Regional. Fonte única tanto da
     tela de Metas quanto do CSV de exportação.
 
     Status "META" vs "META AJUSTADA": não é um campo novo no modelo — é derivado de H4
@@ -351,11 +351,11 @@ class VendedorAllocationReportService:
 
             supervisor = allocation.owner_node.parent
             local = supervisor.parent if supervisor else None
-            gerente = local.parent if local else None
+            regional = local.parent if local else None
 
             rows.append(
                 VendedorAllocationRow(
-                    gerente_nome=gerente.nome if gerente else "",
+                    regional_nome=regional.nome if regional else "",
                     local_nome=local.nome if local else "",
                     supervisor_nome=supervisor.nome if supervisor else "",
                     vendedor_nome=allocation.owner_node.nome,
@@ -402,11 +402,11 @@ class GoalSuggestionService:
 class ChildDistributionContext:
     """Contexto histórico de um alvo direto de uma alocação a distribuir — histórico de 12 meses,
     comparativos (mesmo mês ano passado, média últimos 3 meses) e participação, pra apoiar a
-    decisão de quem está distribuindo manualmente (Gerente→Local, e agora
+    decisão de quem está distribuindo manualmente (Gerente→Regional, Regional→Local, e agora
     também a Etapa 2 — Subgrupo→Supervisor — da quebra do Coordenador Local).
 
     `suggested_kg` só vem preenchido quando o nível de quem distribui tem fórmula AUTO ligada
-    (GERENTE/LOCAL/SUPERVISOR — ver `default_distribution_registry`); sem AUTO ligada
+    (GERENTE/REGIONAL/LOCAL/SUPERVISOR — ver `default_distribution_registry`); sem AUTO ligada
     fica None e a UI não mostra número pré-calculado nenhum, só o histórico/comparativos.
     """
 
@@ -425,7 +425,7 @@ PERIOD_MONTHS = 12
 def _build_child_distribution_contexts(
     *, owner_node: HierarchyNode, cycle: Cycle, group_id: int | None, total_kg: int
 ) -> list[ChildDistributionContext]:
-    """Núcleo compartilhado entre `DistributionContextService` (Gerente→Local,
+    """Núcleo compartilhado entre `DistributionContextService` (Gerente→Regional, Regional→Local,
     e a distribuição "tudo de uma vez" pro nível LOCAL) e `SupervisorSplitContextService` (Etapa 2
     do wizard de subgrupo do Coordenador Local): pesa os filhos diretos de `owner_node` pelo
     histórico do GRUPO INTEIRO de cada um (nunca por subgrupo — Decisão 6, refinamento
@@ -496,7 +496,7 @@ class DistributionContextService:
     aplicável, a `DistributionStrategy` AUTO já aprovada para o nível — nunca inventa fórmula
     nova aqui, só orquestra o que já existe em `strategies.py`.
 
-    Funciona tanto pra alocação GROUP (Gerente→Local) quanto SUBGROUP — a
+    Funciona tanto pra alocação GROUP (Gerente→Regional, Regional→Local) quanto SUBGROUP — a
     tela "Meta Supervisor" chama isso numa alocação SUBGROUP já persistida (dona = Coordenador
     Local, criada por `SplitGroupIntoSubgroupsService`), e o peso continua vindo do histórico do
     GRUPO inteiro do Supervisor (resolvido via `subgroup.group_id`), nunca do subgrupo específico

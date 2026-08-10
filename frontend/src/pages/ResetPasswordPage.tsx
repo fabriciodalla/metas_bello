@@ -4,7 +4,7 @@ import { api, ApiError } from "../api/client";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { PasswordInput } from "../components/ui/PasswordInput";
-import levoLogoWhite from "../assets/levo-logo-white.png";
+import belloLogoWhite from "../assets/bello-logo-white.png";
 
 export function ResetPasswordPage() {
   const { uid, token } = useParams<{ uid: string; token: string }>();
@@ -39,7 +39,7 @@ export function ResetPasswordPage() {
       <div className="login-brand-panel">
         <div className="login-brand-content">
           <div className="login-brand-mark-wrap">
-            <img src={levoLogoWhite} alt="Levo Alimentos" />
+            <img src={belloLogoWhite} alt="Bello Alimentos" />
             <span className="login-brand-name">Vendas</span>
           </div>
         </div>
