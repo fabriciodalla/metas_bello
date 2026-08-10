@@ -1,9 +1,7 @@
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { ProgressBar } from "./ProgressBar";
 
 interface Props {
-  icon: LucideIcon;
   label: string;
   value: ReactNode;
   caption?: ReactNode;
@@ -14,7 +12,6 @@ interface Props {
 }
 
 export function SummaryCard({
-  icon: Icon,
   label,
   value,
   caption,
@@ -26,9 +23,6 @@ export function SummaryCard({
   return (
     <div className={`summary-card summary-card-${accent}`}>
       <div className="summary-card-top">
-        <div className={`summary-card-icon summary-card-icon-${accent}`}>
-          <Icon size={22} strokeWidth={2} />
-        </div>
         <div className="summary-card-body">
           <span className="summary-card-label" title={tooltip}>
             {label}

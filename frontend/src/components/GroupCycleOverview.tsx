@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, ChevronUp, Filter, ListChecks, Send, Target, User } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { GoalAllocation, GroupSuggestion, HierarchyNode, ProductGroup } from "../api/types";
@@ -84,14 +84,12 @@ function CycleSummaryCards({ summary }: { summary: CycleSummary }) {
   return (
     <div className="summary-row">
       <SummaryCard
-        icon={Target}
         label="META TOTAL DO CICLO"
         value={formatKg(summary.metaTotalKg)}
         caption="Soma de todos os grupos"
         tooltip="Inclui metas já criadas e, para grupos ainda não iniciados, a sugestão automática."
       />
       <SummaryCard
-        icon={Send}
         label="DISTRIBUÍDO"
         value={formatKg(summary.distribuidoKg)}
         progress={{ percent: percentDistributed, variant: "success" }}
@@ -100,9 +98,6 @@ function CycleSummaryCards({ summary }: { summary: CycleSummary }) {
       <div className="summary-card summary-card-split">
         <div className="summary-card-split-half">
           <div className="summary-card-top">
-            <div className="summary-card-icon summary-card-icon-warning">
-              <ListChecks size={22} strokeWidth={2} />
-            </div>
             <div className="summary-card-body">
               <span className="summary-card-label">RESTANTE</span>
               <span className="summary-card-value">{formatKg(Math.abs(summary.restanteKg))}</span>
@@ -164,7 +159,6 @@ function CoordinatorTotalsCards({
       {totals.map(({ node, kg }) => (
         <SummaryCard
           key={node.id}
-          icon={User}
           label={node.nome}
           value={formatKg(kg)}
           caption="Total nos grupos do ciclo"

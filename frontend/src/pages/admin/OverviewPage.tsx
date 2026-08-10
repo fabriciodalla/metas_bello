@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, User } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, Network, User, Users } from "lucide-react";
 import { useState } from "react";
 import type { AllocationOverview } from "../../api/types";
 import { CycleSelect } from "./CycleSelect";
@@ -20,6 +20,10 @@ interface AllocationTreeNodeData {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+function formatKg(value: number): string {
+  return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kg`;
 }
 
 function AllocationTree({
@@ -62,8 +66,8 @@ function AllocationTree({
         {node.allocations.map((a) => (
           <div key={a.id} className="tree-allocation-row">
             <span>{a.group_nome ?? "—"}</span>
-            <span>{a.quantity_kg} kg atribuídos</span>
-            <span>{a.distributed ? a.quantity_kg : 0} kg distribuídos</span>
+            <span>{formatKg(a.quantity_kg)} atribuídos</span>
+            <span>{formatKg(a.distributed ? a.quantity_kg : 0)} distribuídos</span>
             <span>{a.distributed ? `aplicado em ${formatDate(a.updated_at)}` : "—"}</span>
           </div>
         ))}
@@ -152,21 +156,35 @@ export function OverviewPage() {
   const rootNodes = [...nodesById.values()].filter((n) => n.level === "GERENTE");
 
   return (
-    <section>
-      <CycleSelect cycles={cycles} value={selectedCycleId} onChange={setSelectedCycleId} />
+    <section className="nivel-overview-page admin-overview-page">
+      <div className="nivel-overview-toolbar">
+        <span className="nivel-overview-toolbar-icon" aria-hidden="true">
+          <CalendarDays size={20} />
+        </span>
+        <CycleSelect cycles={cycles} value={selectedCycleId} onChange={setSelectedCycleId} />
+      </div>
 
       {loading && <Spinner />}
       {!loading && overview.length === 0 && <EmptyState>Nenhuma alocação neste ciclo ainda.</EmptyState>}
       {!loading && overview.length > 0 && (
         <>
           <StatRow>
-            <StatTile value={`${totalKg} kg`} label="Meta total atribuída pelo Gerente" />
-            <StatTile value={`${distribuidoDoGerente} kg`} label="Já distribuído pelo Gerente" />
+            <StatTile value={formatKg(totalKg)} label="Meta total atribuída pelo Gerente" />
+            <StatTile value={formatKg(distribuidoDoGerente)} label="Já distribuído pelo Gerente" />
             <StatTile value={`${percentualNaPonta}%`} label="Já chegou ao Vendedor" />
             <StatTile value={pendentesCount} label="Pendências de distribuição" />
           </StatRow>
 
-          <Card title="Metas por nível (até Coordenador Local)">
+          <Card
+            className="nivel-overview-distribution-card"
+            title={
+              <span className="nivel-overview-card-title">
+                <Network size={20} aria-hidden="true" />
+                Metas por nível (até Coordenador Local)
+              </span>
+            }
+            subtitle="Expanda a estrutura para acompanhar as metas atribuídas em cada nível."
+          >
             <div className="table-wrap tree-scroll">
               <ul className="tree-root">
                 {rootNodes.map((node) => (
@@ -183,7 +201,16 @@ export function OverviewPage() {
             </div>
           </Card>
 
-          <Card title="Status de distribuição por usuário">
+          <Card
+            className="nivel-overview-distribution-card"
+            title={
+              <span className="nivel-overview-card-title">
+                <Users size={20} aria-hidden="true" />
+                Status de distribuição por usuário
+              </span>
+            }
+            subtitle="Acompanhe quem já concluiu a distribuição e quem ainda possui pendências."
+          >
             {statusItems.length === 0 ? (
               <EmptyState>Nenhuma meta disponível neste ciclo.</EmptyState>
             ) : (

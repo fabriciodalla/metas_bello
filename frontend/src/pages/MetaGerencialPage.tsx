@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  Target,
   TrendingDown,
   TrendingUp,
   TriangleAlert,
@@ -416,9 +415,6 @@ export function MetaGerencialPage() {
         <>
           <div className="mg-kpi-row">
             <div className="mg-kpi-card">
-              <div className="mg-kpi-icon">
-                <Target size={28} strokeWidth={2} />
-              </div>
               <div className="mg-kpi-text">
                 <span className="mg-kpi-label">META SUGERIDA</span>
                 <span className="mg-kpi-value">{formatKg(totalSuggestedKg)}</span>
@@ -426,13 +422,6 @@ export function MetaGerencialPage() {
               </div>
             </div>
             <div className="mg-kpi-card">
-              <div className={`mg-kpi-icon ${overallYoyPct !== null && overallYoyPct < 0 ? "mg-kpi-icon-negative" : ""}`}>
-                {overallYoyPct !== null && overallYoyPct < 0 ? (
-                  <TrendingDown size={28} strokeWidth={2} />
-                ) : (
-                  <TrendingUp size={28} strokeWidth={2} />
-                )}
-              </div>
               <div className="mg-kpi-text">
                 <span className="mg-kpi-label">CRESCIMENTO VS. ANO PASSADO</span>
                 <span className="mg-kpi-value">{formatSignedPct(overallYoyPct)}</span>
@@ -440,15 +429,6 @@ export function MetaGerencialPage() {
               </div>
             </div>
             <div className="mg-kpi-card">
-              <div
-                className={`mg-kpi-icon ${overallVs3MonthsPct !== null && overallVs3MonthsPct < 0 ? "mg-kpi-icon-negative" : ""}`}
-              >
-                {overallVs3MonthsPct !== null && overallVs3MonthsPct < 0 ? (
-                  <TrendingDown size={28} strokeWidth={2} />
-                ) : (
-                  <TrendingUp size={28} strokeWidth={2} />
-                )}
-              </div>
               <div className="mg-kpi-text">
                 <span className="mg-kpi-label">VS. ÚLTIMOS 3 MESES</span>
                 <span className="mg-kpi-value">{formatSignedPct(overallVs3MonthsPct)}</span>

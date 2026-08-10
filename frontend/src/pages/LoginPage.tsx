@@ -1,4 +1,4 @@
-import { Award, Mail, Target, TrendingUp, User } from "lucide-react";
+import { Mail, User } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -7,6 +7,9 @@ import { Button } from "../components/ui/Button";
 import { Alert } from "../components/ui/Alert";
 import { PasswordInput } from "../components/ui/PasswordInput";
 import belloLogoWhite from "../assets/bello-logo-white.png";
+import vendasFaturamentoIcon from "../assets/login-vendas-faturamento.png";
+import metasDesempenhoIcon from "../assets/login-metas-desempenho.png";
+import gestaoCarteiraClientesIcon from "../assets/login-gestao-carteira-clientes.png";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -62,39 +65,36 @@ export function LoginPage() {
           </h1>
 
           <p className="login-brand-subtitle login-brand-subtitle-full">
-            Distribuição de metas, acompanhamento de acumulados e indicadores e fechamento de bonificação.
+            Acompanhe vendas, metas, clientes e desempenho da equipe de forma simples e simplificada.
           </p>
-          <p className="login-brand-subtitle login-brand-subtitle-short">Gestão comercial em um só lugar.</p>
+          <p className="login-brand-subtitle login-brand-subtitle-short">
+            Acompanhe vendas, metas, clientes e desempenho da equipe de forma simples e simplificada.
+          </p>
 
           <div className="login-brand-stats">
             <div className="login-brand-stat">
-              <div className="login-brand-stat-icon">
-                <Target size={22} />
+              <div className="login-brand-stat-icon" aria-hidden="true">
+                <img src={vendasFaturamentoIcon} alt="" />
               </div>
               <span>
-                Distribuição
-                <br />
-                das metas
+                Vendas e<br /> faturamento
               </span>
             </div>
             <div className="login-brand-stat">
-              <div className="login-brand-stat-icon">
-                <TrendingUp size={22} />
+              <div className="login-brand-stat-icon" aria-hidden="true">
+                <img src={metasDesempenhoIcon} alt="" />
               </div>
               <span>
-                Acompanhamento
-                <br />
-                de índices
+                Metas e<br /> desempenho
               </span>
             </div>
             <div className="login-brand-stat">
-              <div className="login-brand-stat-icon">
-                <Award size={22} />
+              <div className="login-brand-stat-icon" aria-hidden="true">
+                <img src={gestaoCarteiraClientesIcon} alt="" />
               </div>
               <span>
-                Fechamento de
-                <br />
-                bonificação
+                Gestão da
+                <br /> carteira de clientes
               </span>
             </div>
           </div>

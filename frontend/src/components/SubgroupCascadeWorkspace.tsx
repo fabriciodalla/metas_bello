@@ -1,4 +1,4 @@
-import { Boxes, Calendar, Layers, Send, Target, Users } from "lucide-react";
+import { Boxes, Calendar } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { GoalAllocation, ProductGroup, ProductSubgroup } from "../api/types";
@@ -429,13 +429,11 @@ export function SubgroupCascadeWorkspace({ ownerLevel, noAccessMessage, targetLa
         <>
           <div className="summary-row">
             <SummaryCard
-              icon={Target}
               label="META DO GRUPO"
               value={formatKg(groupTotalKg)}
               caption={selectedGroupNome || undefined}
             />
             <SummaryCard
-              icon={Send}
               label="DISTRIBUÍDO"
               value={formatKg(distribuidoGrupo)}
               progress={{ percent: percentDistribuido, variant: "success" }}
@@ -444,7 +442,6 @@ export function SubgroupCascadeWorkspace({ ownerLevel, noAccessMessage, targetLa
               }
             />
             <SummaryCard
-              icon={Layers}
               label="RESTANTE"
               accent="warning"
               value={formatKg(Math.abs(restanteGrupo))}
@@ -452,7 +449,6 @@ export function SubgroupCascadeWorkspace({ ownerLevel, noAccessMessage, targetLa
               progressLabel={formatPct(percentRestante)}
             />
             <SummaryCard
-              icon={Users}
               label={targetLabelPlural.toUpperCase()}
               value={String(targets.length)}
               caption={`${targetsAtivos} ativos`}

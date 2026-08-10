@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { CalendarDays, Users } from "lucide-react";
 import { CycleSelect } from "../admin/CycleSelect";
 import { useAuth } from "../../auth/AuthContext";
 import { useCycleAllocations } from "./useCycleAllocations";
@@ -7,6 +8,10 @@ import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Card } from "../../components/ui/Card";
 import { AllocationStatusTable, type AllocationStatusItem } from "../../components/AllocationStatusTable";
+
+const kgFormatter = new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 0,
+});
 
 export function NivelOverviewPage() {
   const { user } = useAuth();
@@ -41,8 +46,13 @@ export function NivelOverviewPage() {
   const subordinadosPendentesCount = subordinados.filter((a) => !a.distributed).length;
 
   return (
-    <section>
-      <CycleSelect cycles={cycles} value={selectedCycleId} onChange={setSelectedCycleId} />
+    <section className="nivel-overview-page">
+      <div className="nivel-overview-toolbar">
+        <span className="nivel-overview-toolbar-icon" aria-hidden="true">
+          <CalendarDays size={20} />
+        </span>
+        <CycleSelect cycles={cycles} value={selectedCycleId} onChange={setSelectedCycleId} />
+      </div>
 
       {loading && <Spinner />}
       {!loading && allocations.length === 0 && (
@@ -51,12 +61,30 @@ export function NivelOverviewPage() {
       {!loading && allocations.length > 0 && (
         <>
           <StatRow>
-            <StatTile value={`${totalKg} kg`} label="Sua meta neste ciclo" />
-            <StatTile value={`${percentualNaPonta}%`} label="Já chegou ao Vendedor" />
-            <StatTile value={subordinadosPendentesCount} label="Subordinados pendentes" />
+            <StatTile
+              value={`${kgFormatter.format(totalKg)} kg`}
+              label="Sua meta neste ciclo"
+            />
+            <StatTile
+              value={`${percentualNaPonta}%`}
+              label="Já chegou ao Vendedor"
+            />
+            <StatTile
+              value={subordinadosPendentesCount}
+              label="Subordinados pendentes"
+            />
           </StatRow>
 
-          <Card title="Distribuição dos seus subordinados">
+          <Card
+            className="nivel-overview-distribution-card"
+            title={
+              <span className="nivel-overview-card-title">
+                <Users size={20} aria-hidden="true" />
+                Distribuição dos seus subordinados
+              </span>
+            }
+            subtitle="Acompanhe o recebimento e a distribuição das metas da sua equipe."
+          >
             {subordinados.length === 0 ? (
               <EmptyState>Nenhum subordinado com meta disponível neste ciclo.</EmptyState>
             ) : (

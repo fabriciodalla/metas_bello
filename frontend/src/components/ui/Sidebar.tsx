@@ -5,7 +5,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Eye,
-  LayoutGrid,
   type LucideIcon,
   ListChecks,
   RefreshCw,
@@ -47,7 +46,7 @@ function useNivelGroups(user: User): NivelGroup[] {
       {
         key: "distribuicao",
         label: "Distribuição",
-        icon: LayoutGrid,
+        icon: Target,
         items: [
           { to: "/distribuicao/visao-geral", label: "Visão Geral", hidden: !showOverview },
           { to: "/distribuicao/meta-gerencial", label: "Meta Gerencial", hidden: !showMetaGerencial },
@@ -112,9 +111,12 @@ export function Sidebar({ user }: { user: User }) {
   return (
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="sidebar-brand">
-        <img src={belloBWhite} alt="Bello" className="sidebar-brand-mark" />
+        <div className="sidebar-brand-symbol" aria-hidden="true">
+          <img src={belloBWhite} alt="" className="sidebar-brand-mark" />
+        </div>
         <span className="sidebar-brand-text">
-          Bello <span className="sidebar-brand-accent">Vendas</span>
+          <strong>Bello</strong>
+          <span className="sidebar-brand-accent">Vendas</span>
         </span>
       </div>
 
@@ -133,7 +135,9 @@ export function Sidebar({ user }: { user: User }) {
                 <div className="sidebar-group" key={group.key}>
                   <button
                     type="button"
-                    className={`sidebar-link sidebar-group-toggle${isOpen ? " open" : ""}`}
+                    className={`sidebar-link sidebar-group-toggle${isOpen ? " open" : ""}${
+                      activeGroupKey === group.key ? " active" : ""
+                    }`}
                     onClick={() => toggleGroup(group.key)}
                     aria-expanded={isOpen}
                   >

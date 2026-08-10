@@ -1,4 +1,4 @@
-import { Eraser, Package, Save, Target, Wand2 } from "lucide-react";
+import { Eraser, Save, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { GoalAllocation, SubgroupDistributionContext } from "../api/types";
@@ -121,9 +121,8 @@ export function SubgroupSplitForm({ allocation, onSplit }: Props) {
   return (
     <div className="ssw-panel">
       <div className="summary-row">
-        <SummaryCard icon={Target} label="META DO GRUPO" value={formatKg(allocation.quantity_kg)} />
+        <SummaryCard label="META DO GRUPO" value={formatKg(allocation.quantity_kg)} />
         <SummaryCard
-          icon={Package}
           label="SUBGRUPOS"
           value={`${withMetaCount}/${rows.length}`}
           caption="Subgrupos com metas"

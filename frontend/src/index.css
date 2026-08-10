@@ -140,9 +140,12 @@ button {
 }
 
 .sidebar {
+  --color-accent: #efb810;
   width: var(--sidebar-width);
   flex-shrink: 0;
-  background: var(--color-primary-dark);
+  background:
+    radial-gradient(circle at 15% 4%, rgba(28, 145, 91, 0.32) 0, transparent 24%),
+    linear-gradient(180deg, #004c32 0%, #003f2b 48%, #003624 100%);
   color: var(--gray-0);
   display: flex;
   flex-direction: column;
@@ -156,6 +159,11 @@ button {
 
 .sidebar-brand-accent {
   color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .sidebar.collapsed {
@@ -167,31 +175,72 @@ button {
   display: none;
 }
 
+.sidebar.collapsed .sidebar-brand {
+  justify-content: center;
+  padding-inline: var(--space-3);
+}
+
 .sidebar-brand {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-5) var(--space-4);
+  padding: 18px var(--space-4);
   min-height: var(--topbar-height);
 }
 
+.sidebar-brand::after {
+  content: "";
+  position: absolute;
+  right: var(--space-4);
+  bottom: 0;
+  left: var(--space-4);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(239, 184, 16, 0.55), rgba(255, 255, 255, 0.04));
+}
+
+.sidebar-brand-symbol {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 20px rgba(0, 28, 18, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
 .sidebar-brand-mark {
-  height: 28px;
+  height: 25px;
   width: auto;
   display: block;
   flex-shrink: 0;
 }
 
 .sidebar-brand-text {
-  font-weight: 900;
-  font-size: var(--text-md);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   white-space: nowrap;
   overflow: hidden;
 }
 
+.sidebar-brand-text strong {
+  color: var(--gray-0);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
 .sidebar-nav {
   flex: 1;
-  padding: var(--space-3);
+  padding: var(--space-4) var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -202,7 +251,7 @@ button {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   color: var(--gray-0);
   text-decoration: none;
   font-weight: 900;
@@ -215,17 +264,29 @@ button {
 
 .sidebar-link svg {
   flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.82);
+  transition: color var(--transition-fast), transform var(--transition-fast);
 }
 
 .sidebar-link:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   color: var(--gray-0);
 }
 
+.sidebar-link:hover svg {
+  color: var(--gray-0);
+  transform: translateX(1px);
+}
+
 .sidebar-link.active {
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.07));
   color: var(--gray-0);
   border-left-color: var(--color-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-link.active svg {
+  color: var(--color-accent);
 }
 
 .sidebar-group-toggle {
@@ -291,16 +352,18 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: rgba(0, 30, 20, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   transition: background var(--transition-fast);
 }
 
 .sidebar-toggle:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(239, 184, 16, 0.45);
+  color: var(--color-accent);
 }
 
 .avatar {
@@ -907,32 +970,17 @@ button {
 .summary-card-top {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-.summary-card-icon {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--color-primary-subtle);
-  color: var(--color-primary);
-  display: flex;
-  align-items: center;
   justify-content: center;
-}
-
-.summary-card-icon-warning {
-  background: var(--color-warning-subtle);
-  color: var(--color-warning);
+  min-width: 0;
 }
 
 .summary-card-body {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
   min-width: 0;
+  text-align: center;
 }
 
 .summary-card-label {
@@ -953,12 +1001,14 @@ button {
 .summary-card-caption {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+  text-align: center;
 }
 
 .summary-card-progress {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  width: 100%;
 }
 
 .summary-card-progress .progress-bar {
@@ -989,6 +1039,8 @@ button {
   gap: var(--space-2);
   min-width: 0;
   justify-content: center;
+  align-items: center;
+  text-align: center;
 }
 
 .summary-card-split-half:first-child {
@@ -1002,16 +1054,6 @@ button {
 .summary-card-split-half .summary-card-value {
   font-size: var(--text-xl);
   white-space: nowrap;
-}
-
-.summary-card-split-half .summary-card-top {
-  gap: var(--space-3);
-}
-
-.summary-card-split-half .summary-card-icon {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
 }
 
 .summary-card-divider {
@@ -2192,6 +2234,7 @@ legend {
 /* ---------- Login ---------- */
 
 .login-page {
+  --color-accent: #efb810;
   min-height: 100vh;
   display: flex;
 }
@@ -2202,7 +2245,10 @@ legend {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: linear-gradient(160deg, #004d2a 0%, #006b3c 55%, #00834a 100%);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(25, 151, 91, 0.55) 0, transparent 34%),
+    radial-gradient(circle at 88% 92%, rgba(22, 174, 101, 0.35) 0, transparent 38%),
+    linear-gradient(145deg, #003d25 0%, #005f38 48%, #00844b 100%);
   padding: var(--space-7) var(--space-7) var(--space-6);
 }
 
@@ -2210,28 +2256,20 @@ legend {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 0.28;
   background-image:
-    radial-gradient(circle at 12% 18%, rgba(217, 164, 65, 0.16) 0, transparent 42%),
-    radial-gradient(circle at 88% 82%, rgba(255, 255, 255, 0.08) 0, transparent 38%),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 64px),
-    linear-gradient(
-      to top,
-      rgba(217, 164, 65, 0.12) 0%,
-      rgba(217, 164, 65, 0.05) 12%,
-      transparent 24%
-    );
+    url("./assets/login-sales-background.svg"),
+    radial-gradient(circle at 18% 22%, rgba(239, 184, 16, 0.12) 0, transparent 34%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 72px);
   background-size:
+    cover,
     auto,
-    auto,
-    auto,
-    100% 45%;
+    auto;
   background-position:
+    center,
     left top,
-    left top,
-    left top,
-    left bottom;
-  background-repeat: no-repeat, no-repeat, repeat, no-repeat;
+    left top;
+  background-repeat: no-repeat, no-repeat, repeat;
 }
 
 .login-brand-content {
@@ -2239,12 +2277,10 @@ legend {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  text-align: center;
-  /* Painel (var(--space-7) = 40px) + este padding somam o mesmo offset do topo usado em
-     .login-form-panel, pra alinhar o topo do logo com o topo do card de login. */
-  padding-top: 40px;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+  padding-block: var(--space-6);
   max-width: 520px;
   margin: 0 auto;
   width: 100%;
@@ -2254,13 +2290,13 @@ legend {
   position: relative;
   display: inline-block;
   padding-bottom: var(--space-2);
-  margin: 0 0 var(--space-6);
+  margin: 0 0 52px;
 }
 
 .login-brand-panel img {
   display: block;
   width: 100%;
-  max-width: 320px;
+  max-width: 240px;
   height: auto;
 }
 
@@ -2273,15 +2309,15 @@ legend {
   white-space: nowrap;
   font-family: var(--font-family);
   color: var(--color-accent);
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
 .login-brand-title {
   color: var(--gray-0);
-  font-size: clamp(32px, 3.6vw, 50px);
-  line-height: 1.15;
+  font-size: clamp(28px, 2.7vw, 38px);
+  line-height: 1.18;
   font-weight: 800;
   margin: 0 0 var(--space-4);
 }
@@ -2292,10 +2328,10 @@ legend {
 
 .login-brand-subtitle {
   color: rgba(255, 255, 255, 0.88);
-  font-size: var(--text-lg);
-  line-height: 1.5;
-  margin: 0 0 var(--space-6);
-  max-width: 440px;
+  font-size: var(--text-base);
+  line-height: 1.55;
+  margin: 0 0 var(--space-7);
+  max-width: 470px;
 }
 
 .login-brand-subtitle-short {
@@ -2304,36 +2340,54 @@ legend {
 
 .login-brand-stats {
   display: flex;
-  justify-content: center;
-  gap: var(--space-6);
+  justify-content: space-between;
+  gap: 0;
+  width: 100%;
 }
 
 .login-brand-stat {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 140px;
+  flex: 1;
+  width: auto;
   gap: var(--space-3);
   text-align: center;
   color: var(--gray-0);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  line-height: 1.3;
+  font-size: var(--text-base);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.login-brand-stat:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .login-brand-stat-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  background: rgba(217, 164, 65, 0.18);
-  border: 1px solid rgba(217, 164, 65, 0.4);
-  border-radius: var(--radius-md);
+  width: 82px;
+  height: 82px;
+  background: rgba(0, 51, 29, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  box-shadow:
+    0 10px 24px rgba(0, 31, 18, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.login-brand-stat-icon svg {
-  color: var(--color-accent);
+.login-brand-stat-icon img {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
 }
 
 .login-brand-footer {
@@ -2358,11 +2412,10 @@ legend {
 .login-form-panel {
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   background: var(--color-bg);
-  /* Mesmo offset de topo de .login-brand-content, pra alinhar o topo do card com o topo do logo. */
-  padding: 80px var(--space-5) var(--space-5);
+  padding: var(--space-5);
 }
 
 .login-card {
@@ -2639,33 +2692,32 @@ legend {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  justify-content: center;
+  min-height: 118px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 74, 45, 0.07);
 }
 
-.mg-kpi-icon {
-  width: 52px;
-  height: 52px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--color-primary-subtle);
-  color: var(--color-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mg-kpi-icon-negative {
-  background: var(--color-danger-subtle);
-  color: var(--color-danger);
+.mg-kpi-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--color-primary);
 }
 
 .mg-kpi-text {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
 }
 
@@ -3424,4 +3476,127 @@ legend {
     flex: 0 0 88%;
     width: 88%;
   }
+}
+
+/* ---------- Visão geral por nível ---------- */
+
+.nivel-overview-toolbar {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.nivel-overview-toolbar-icon {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: rgba(239, 184, 16, 0.14);
+  color: #a97800;
+}
+
+.nivel-overview-toolbar .field-inline {
+  margin: 0;
+}
+
+.nivel-overview-toolbar select {
+  min-width: 210px;
+}
+
+.nivel-overview-page .stat-tile {
+  min-height: 118px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 74, 45, 0.07);
+}
+
+.nivel-overview-page .stat-tile .metric-chip {
+  align-items: center;
+}
+
+.nivel-overview-page .stat-tile::before {
+  width: 4px;
+  background: var(--color-primary);
+}
+
+.nivel-overview-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary-dark);
+}
+
+.nivel-overview-card-title svg {
+  color: #a97800;
+}
+
+.nivel-overview-distribution-card {
+  border-top: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 28px rgba(0, 74, 45, 0.07);
+}
+
+.nivel-overview-distribution-card .table-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.nivel-overview-distribution-card .table thead {
+  background: linear-gradient(90deg, var(--color-primary-subtle), rgba(239, 184, 16, 0.07));
+}
+
+.nivel-overview-distribution-card .pending-row-summary:hover {
+  background: rgba(0, 121, 72, 0.045);
+}
+
+@media (max-width: 600px) {
+  .nivel-overview-toolbar {
+    width: 100%;
+  }
+
+  .nivel-overview-toolbar .field-inline {
+    flex: 1;
+  }
+
+  .nivel-overview-toolbar select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* ---------- Padrão visual unificado dos cards do sistema ---------- */
+
+.card,
+.summary-card,
+.mg-group-card,
+.dp-workspace-card,
+.sv-card {
+  border-color: var(--color-border);
+  border-left-color: var(--color-primary);
+  border-left-style: solid;
+  border-left-width: 4px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 74, 45, 0.07);
+}
+
+.mg-mini-card {
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.mg-group-expand {
+  border-left: 4px solid var(--color-primary);
 }
