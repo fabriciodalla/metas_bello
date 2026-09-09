@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Pencil, TriangleAlert, User } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import type { HierarchyNode, UserAccount } from "../../api/types";
 import { Card } from "../../components/ui/Card";
@@ -9,10 +9,6 @@ import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { UserEditModal } from "./UserEditModal";
-
-// Mostrados expandidos por padrão — o resto (Supervisor, Vendedor, muitos nós) começa recolhido
-// pra não virar uma parede de linhas.
-const AUTO_EXPANDED_LEVELS = new Set(["GERENTE", "REGIONAL", "LOCAL"]);
 
 function TreeNode({
   node,
@@ -110,7 +106,6 @@ export function HierarchyManager() {
   const [deactivating, setDeactivating] = useState(false);
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
-  const seeded = useRef(false);
 
   function reload() {
     void api.get<HierarchyNode[]>("/hierarchy/nodes/").then(setNodes);
@@ -118,14 +113,6 @@ export function HierarchyManager() {
   }
 
   useEffect(reload, []);
-
-  // Semeia o conjunto de nós expandidos uma única vez, na primeira carga — depois disso o
-  // usuário controla o que fica aberto/fechado, sem resets a cada reload.
-  useEffect(() => {
-    if (seeded.current || nodes.length === 0) return;
-    seeded.current = true;
-    setExpanded(new Set(nodes.filter((n) => AUTO_EXPANDED_LEVELS.has(n.level)).map((n) => n.id)));
-  }, [nodes]);
 
   function toggleExpand(nodeId: number) {
     setExpanded((current) => {

@@ -86,9 +86,10 @@ class DistributionContextServiceTests(TestCase):
         self.assertAlmostEqual(by_node[self.regional_b.id].historical_share_pct, 25.0)
         self.assertFalse(by_node[self.regional_a.id].has_gap)
 
-    def test_gerente_level_has_no_suggested_kg_when_no_target_has_history(self):
+    def test_gerente_level_splits_equally_when_no_target_has_history(self):
         """Sem histórico curado pra nenhum alvo (ExternalSalespersonMapping vazio, ver O3), a
-        proporção soma zero — a fórmula não crasha, só degrada pra "sem sugestão"."""
+        fórmula não crasha nem degrada pra "sem sugestão" — reparte em partes iguais (garantia
+        confirmada com o usuário, 2026-09-03: sempre existe uma sugestão pré-preenchida)."""
         group_without_history = ProductGroup.objects.create(nome="Laticínios")
         subgroup_without_history = ProductSubgroup.objects.create(nome="Queijo", group=group_without_history)
         ExternalProductMapping.objects.create(external_code="QUEIJO", subgroup=subgroup_without_history)
@@ -105,8 +106,8 @@ class DistributionContextServiceTests(TestCase):
         contexts = DistributionContextService.build(allocation)
         by_node = {ctx.owner_node_id: ctx for ctx in contexts}
 
-        self.assertIsNone(by_node[self.regional_a.id].suggested_kg)
-        self.assertIsNone(by_node[self.regional_b.id].suggested_kg)
+        self.assertEqual(by_node[self.regional_a.id].suggested_kg, 250)
+        self.assertEqual(by_node[self.regional_b.id].suggested_kg, 250)
 
     def test_regional_level_prefills_suggested_kg_closing_exactly_with_parent(self):
         """Regional→Local já tem fórmula AUTO aprovada (P2) — aqui ela pré-preenche a sugestão,
@@ -217,9 +218,38 @@ class DistributionContextApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_returns_context_per_direct_child(self):
+        # Sem histórico algum, mas único filho: a garantia de "sempre existe uma sugestão" (ver
+        # RecentAverageDistributionStrategy) faz esse único alvo receber o total inteiro.
         response = self.client.get(reverse("goal-allocation-distribution-context", args=[self.allocation.id]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["owner_node_id"], self.regional.id)
-        self.assertIsNone(response.data[0]["suggested_kg"])
+        self.assertEqual(response.data[0]["suggested_kg"], 1000)
+
+    def test_hitting_endpoint_matches_a_new_vendedor_without_running_the_command_by_hand(self):
+        """Bug real (2026-08-07): um Vendedor cadastrado depois da última sincronização manual
+        (`match_external_salespersons`) saía com histórico zerado — o endpoint agora garante o
+        casamento de nome sozinho (`ExternalSalespersonMatchingService.sync()`), sem precisar de
+        nenhum comando rodado à parte."""
+        subgroup = ProductSubgroup.objects.create(nome="Linguiça", group=self.group)
+        ExternalProductMapping.objects.create(external_code="LINGUICA", subgroup=subgroup)
+        vendedor = HierarchyNode.objects.create(
+            level=HierarchyNode.Level.VENDEDOR, nome="Vendedor Novo", parent=self.regional
+        )
+        for mes in range(1, 13):
+            DistributionBaseline.objects.create(
+                ano=2025,
+                mes=mes,
+                salesperson_name="Vendedor Novo",
+                subgroup_name="LINGUICA",
+                total_quantity=100,
+            )
+        self.assertFalse(ExternalSalespersonMapping.objects.filter(hierarchy_node=vendedor).exists())
+
+        response = self.client.get(reverse("goal-allocation-distribution-context", args=[self.allocation.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(ExternalSalespersonMapping.objects.filter(hierarchy_node=vendedor).exists())
+        regional_context = next(c for c in response.data if c["owner_node_id"] == self.regional.id)
+        self.assertEqual(sum(point["quantity_kg"] for point in regional_context["history"]), 1200)
