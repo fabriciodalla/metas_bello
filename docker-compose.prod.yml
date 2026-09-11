@@ -1,0 +1,55 @@
+# Stack de produção (M-02): gunicorn no lugar de `manage.py runserver`, build estático do frontend
+# servido por nginx no lugar do dev server do Vite. Arquivo separado do docker-compose.yml (dev) de
+# propósito — não interfere no fluxo de desenvolvimento com hot-reload documentado no CLAUDE.md.
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Aponte o túnel/Cloudflare pra porta publicada do serviço `frontend` (nginx, ${FRONTEND_HOST_PORT
+# :-8080} por padrão) — é ele que serve o SPA e faz proxy de /api e /admin pro backend.
+#
+# `name` fixo: sem isso, o Compose deriva o nome do projeto do nome da pasta — o mesmo nome que
+# docker-compose.yml (dev) já usa por padrão — e os containers desta stack substituiriam os da
+# stack de desenvolvimento (mesmo nome de container). Incidente real, 2026-09-11: rodar este
+# arquivo sem `name` derrubou e recriou backend/db/frontend do dev com as imagens de produção.
+name: metas_bello_prod
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-metasbello}
+      POSTGRES_USER: ${POSTGRES_USER:-metasbello}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em .env.prod}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-metasbello}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    env_file:
+      - .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "${FRONTEND_HOST_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data_prod:

@@ -1,0 +1,26 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Só requirements.txt (sem requirements-dev.txt): pytest/black/ruff não vão pra imagem que roda em
+# produção (B-03).
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+RUN chmod +x docker-entrypoint.prod.sh
+
+EXPOSE 8000
+
+# collectstatic e migrate rodam no entrypoint (runtime), não no build: settings.py exige
+# DJANGO_SECRET_KEY (B-04) e as demais variáveis de config/.env.prod, que só existem em tempo de
+# execução (via `env_file` do compose) — não durante `docker build`.
+ENTRYPOINT ["./docker-entrypoint.prod.sh"]

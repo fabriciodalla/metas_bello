@@ -12,12 +12,13 @@ from apps.accounts.permissions import IsAppAdmin
 from apps.allocations.models import GoalAllocation
 from apps.allocations.serializers import AllocationOverviewSerializer
 from apps.allocations.services import CycleCompletenessChecker, VendedorAllocationReportService
+from apps.csv_safety import csv_safe
 
 from .models import Cycle
 from .serializers import CycleSerializer, StuckAllocationSerializer
 from .services import CloseCycleService, CycleAlreadyExistsError, CycleNotCompleteError, OpenCycleService
 
-ADMIN_ONLY_ACTIONS = ("open", "distribution_overview", "export", "vendedor_report")
+ADMIN_ONLY_ACTIONS = ("open", "close", "completeness", "distribution_overview", "export", "vendedor_report")
 
 
 class CycleViewSet(ReadOnlyModelViewSet):
@@ -122,12 +123,12 @@ class CycleViewSet(ReadOnlyModelViewSet):
         for row in rows:
             writer.writerow(
                 [
-                    row.regional_nome,
-                    row.local_nome,
-                    row.supervisor_nome,
-                    row.vendedor_nome,
-                    row.grupo_nome,
-                    row.subgrupo_nome,
+                    csv_safe(row.regional_nome),
+                    csv_safe(row.local_nome),
+                    csv_safe(row.supervisor_nome),
+                    csv_safe(row.vendedor_nome),
+                    csv_safe(row.grupo_nome),
+                    csv_safe(row.subgrupo_nome),
                     row.quantity_kg,
                     ciclo_label,
                     row.status,

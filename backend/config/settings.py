@@ -7,13 +7,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env(BASE_DIR.parent / ".env")
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="django-insecure-dev-only-change-me")
+# Sem fallback: um SECRET_KEY previsível compromete sessões, tokens de redefinição de senha e
+# assinaturas CSRF — a aplicação deve recusar iniciar em vez de rodar com um valor conhecido.
+SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # Origin do frontend (Vite dev server) — necessário porque o proxy do Vite preserva o header
 # Origin do navegador mesmo reescrevendo o Host para o alvo interno (ver docker-compose.yml).
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=["http://localhost:5173"])
+
+# Endurecimento de cookies/transporte: desligado por padrão em dev (DEBUG=True, acesso local por
+# http://localhost:5173) e ligado por padrão em produção (DEBUG=False, atrás do túnel Cloudflare,
+# sempre HTTPS) — DJANGO_SECURE_COOKIES permite forçar o valor nos dois sentidos se precisar.
+SECURE_COOKIES = env.bool("DJANGO_SECURE_COOKIES", default=not DEBUG)
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SECURE = SECURE_COOKIES
+SESSION_COOKIE_SAMESITE = "Lax"
+SECURE_CONTENT_TYPE_NOSNIFF = True
+if SECURE_COOKIES:
+    # Obrigatório junto de *_COOKIE_SECURE: sem isso, por trás de um proxy/túnel que termina TLS
+    # antes da aplicação, o Django vê a requisição como HTTP simples e o cookie Secure nunca seria
+    # definido — quebrando o login (ver nginx.conf / SECURE_PROXY_SSL_HEADER).
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 31536000
 
 
 INSTALLED_APPS = [
@@ -42,6 +59,12 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+if not DEBUG:
+    # Só entra fora de DEBUG: em dev, `runserver` já serve os estáticos sozinho (staticfiles app) e
+    # ninguém roda collectstatic — WhiteNoise sem STATIC_ROOT populado só gera aviso à toa. Em
+    # produção (gunicorn, sem runserver) é ele quem serve /static/ (Django Admin, DRF browsable
+    # API) sem precisar de outro container/volume compartilhado com o nginx.
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 
 ROOT_URLCONF = "config.urls"
 
@@ -100,6 +123,13 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # Serve CSS/JS do Django Admin (e da API navegável do DRF) direto pelo processo do gunicorn em
+    # produção, sem depender de outro container/volume compartilhado com o nginx (Decisão M-02).
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -110,4 +140,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10/min",
+        "password_reset": "5/min",
+    },
 }
+
+# Validade do link de "definir senha" (primeiro acesso e recuperação, via PasswordResetConfirmView)
+# — padrão do Django é 3 dias; 24h já é suficiente para o fluxo por e-mail e reduz a janela de uso
+# de um link vazado/interceptado.
+PASSWORD_RESET_TIMEOUT = env.int("DJANGO_PASSWORD_RESET_TIMEOUT", default=86400)

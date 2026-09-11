@@ -1,3 +1,5 @@
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.hierarchy.models import HierarchyNode
@@ -5,6 +7,16 @@ from apps.hierarchy.serializers import HierarchyNodeSerializer
 
 from .models import User
 from .services import deactivate_if_orphaned, sync_primary_position
+
+
+def _validate_new_password(value, user=None):
+    """Aciona os validadores de AUTH_PASSWORD_VALIDATORS (settings.py) — `set_password`/
+    `create_user` não passam por eles sozinhos, só formulários nativos do Django."""
+    try:
+        validate_password(value, user)
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError(list(exc.messages))
+    return value
 
 
 class HierarchyNodeSummarySerializer(serializers.ModelSerializer):
@@ -41,10 +53,19 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     token = serializers.CharField()
     new_password = serializers.CharField(write_only=True)
 
+    def validate_new_password(self, value):
+        # Usuário ainda não foi resolvido aqui (depende de `uid`, decodificado só na view) — a
+        # checagem de similaridade com dados do usuário fica de fora, mas comprimento mínimo,
+        # senha comum e senha só numérica já cobrem o essencial.
+        return _validate_new_password(value)
+
 
 class PasswordChangeSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        return _validate_new_password(value, self.context["request"].user)
 
 
 class AddUserPositionSerializer(serializers.Serializer):
@@ -115,6 +136,9 @@ class UserAccountSerializer(serializers.ModelSerializer):
 
     def get_hierarchy_nodes(self, obj):
         return HierarchyNodeSerializer(obj.hierarchy_nodes.by_seniority(), many=True).data
+
+    def validate_password(self, value):
+        return _validate_new_password(value, self.instance)
 
     def validate(self, attrs):
         if self.instance is None and not attrs.get("password"):

@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAppAdmin
+from apps.csv_safety import csv_safe
 from apps.hierarchy.services import ExternalSalespersonMatchingService
 
 from .services import (
@@ -91,10 +92,10 @@ class VendorSubgroupExportView(APIView):
         for row in rows:
             writer.writerow(
                 [
-                    row.regional_nome,
-                    row.local_nome,
-                    row.vendedor_nome,
-                    row.subgrupo_nome,
+                    csv_safe(row.regional_nome),
+                    csv_safe(row.local_nome),
+                    csv_safe(row.vendedor_nome),
+                    csv_safe(row.subgrupo_nome),
                     row.sum_3_months_kg,
                     row.sum_12_months_kg,
                     f"{row.avg_3_months_kg:.2f}",

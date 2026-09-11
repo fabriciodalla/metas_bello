@@ -7,8 +7,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metasbello}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-metasbello}"]
       interval: 5s
