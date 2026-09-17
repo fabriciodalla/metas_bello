@@ -5,8 +5,9 @@
 # Uso:
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 #
-# Aponte o túnel/Cloudflare pra porta publicada do serviço `frontend` (nginx, ${FRONTEND_HOST_PORT
-# :-8080} por padrão) — é ele que serve o SPA e faz proxy de /api e /admin pro backend.
+# A porta publicada do serviço `frontend` (nginx, ${FRONTEND_HOST_PORT:-8084} por padrão — já
+# redirecionada pelo TI no roteador, ver .env.prod.example) é quem serve o SPA e faz proxy de
+# /api e /admin pro backend. Se um dia trocar pra túnel Cloudflare, é nela que ele deve apontar.
 #
 # `name` fixo: sem isso, o Compose deriva o nome do projeto do nome da pasta — o mesmo nome que
 # docker-compose.yml (dev) já usa por padrão — e os containers desta stack substituiriam os da
@@ -40,16 +41,31 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8000), timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
     ports:
-      - "${FRONTEND_HOST_PORT:-8080}:80"
+      # 8084: porta já redirecionada pelo TI pro servidor compartilhado (10.160.3.136) — ver
+      # .env.prod.example.
+      - "${FRONTEND_HOST_PORT:-8084}:8080"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_data_prod:
