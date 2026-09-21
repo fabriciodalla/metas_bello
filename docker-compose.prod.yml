@@ -66,7 +66,10 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/"]
+      # 127.0.0.1, não localhost: a imagem nginx-unprivileged só escuta em IPv4, mas
+      # "localhost" resolve pra ::1 primeiro dentro do container — wget sem fallback de
+      # família dá "connection refused" mesmo com o nginx no ar, e o healthcheck nunca passa.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
       interval: 30s
       timeout: 5s
       retries: 5
