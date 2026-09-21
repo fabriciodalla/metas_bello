@@ -1,0 +1,4 @@
+# Scripts executados dentro de containers Linux precisam de LF sempre — independente do
+# core.autocrlf de quem faz checkout (Windows converte pra CRLF por padrão, o que quebra o
+# shebang: "#!/bin/sh\r" vira um interpretador inexistente e o container nunca sobe).
+*.sh text eol=lf
