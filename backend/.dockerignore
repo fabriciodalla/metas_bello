@@ -1,0 +1,9 @@
+# staticfiles/ gerado localmente (dev com bind-mount, hot-reload) não pode entrar no contexto do
+# build de produção — achado real, 2026-09-21: um staticfiles/ do host com manifesto/permissões
+# de outra execução quebrava o collectstatic do entrypoint.prod (PermissionError, usuário "app"
+# sem privilégio não conseguia limpar arquivo hasheado de uma geração anterior).
+staticfiles/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.sqlite3

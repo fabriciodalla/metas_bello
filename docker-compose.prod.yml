@@ -2,11 +2,17 @@
 # servido por nginx no lugar do dev server do Vite. Arquivo separado do docker-compose.yml (dev) de
 # propósito — não interfere no fluxo de desenvolvimento com hot-reload documentado no CLAUDE.md.
 #
-# Deploy via Coolify: a plataforma cuida da rede/roteamento (Traefik, HTTPS) e grava as variáveis
-# configuradas no painel em `.env`, no diretório do projeto — é esse arquivo que o `env_file` do
-# backend abaixo espera. O serviço `frontend` não publica porta no host de propósito: no Coolify o
-# roteamento é pela rede interna do Docker, e publicar porta só criaria um caminho HTTP paralelo ao
-# Traefik/HTTPS.
+# Deploy: grava as variáveis de ambiente em `.env`, no diretório do projeto (é esse arquivo que o
+# `env_file` do backend abaixo espera).
+#
+# ATENÇÃO (achado real, 2026-09-21): a suposição anterior aqui era "Coolify + Traefik cuidam do
+# roteamento, sem porta publicada, sempre HTTPS" — mas o servidor onde isso roda de fato
+# (`plu-projetos`, ~/projetos/METAS_BELLO) não é gerenciado pelo Coolify: é acesso direto por
+# IP:porta (10.160.3.136:8084 / 177.124.179.224:8084, redirecionamento feito pelo T.I. no
+# roteador, sem TLS). Remover a porta publicada do frontend derruba o único caminho de acesso que
+# existe de verdade nesse servidor. Se um dia isso migrar pra trás de um Coolify/Traefik real com
+# HTTPS, revisitar a publicação de porta E `DJANGO_SECURE_COOKIES`/`DJANGO_CSRF_TRUSTED_ORIGINS`
+# juntos, no mesmo commit — as duas coisas têm que mudar em conjunto (foi isso que quebrou aqui).
 #
 # Uso local (fora do Coolify, para testar a build de produção manualmente):
 #   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
@@ -61,6 +67,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+    ports:
+      # 8084: porta já redirecionada pelo T.I. pro servidor compartilhado — mudar aqui exige pedir
+      # um redirecionamento novo pra outra porta (ver .env.prod.example).
+      - "${FRONTEND_HOST_PORT:-8084}:8080"
     depends_on:
       backend:
         condition: service_healthy
