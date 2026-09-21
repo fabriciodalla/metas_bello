@@ -273,6 +273,7 @@ class VendorSubgroupExportRow:
     regional_nome: str
     local_nome: str
     vendedor_nome: str
+    grupo_nome: str
     subgrupo_nome: str
     sum_3_months_kg: int
     sum_12_months_kg: int
@@ -282,9 +283,10 @@ class VendorSubgroupExportRow:
 
 class VendorSubgroupExportService:
     """CSV completo (Pré-processamento, "Resumo por vendedor e grupo"): mesma base de
-    `VendorGroupSummaryService`, mas por SUBGRUPO em vez de grupo, com soma além da média — pedido
-    do usuário pra auditar o dado bruto por trás das médias mostradas na tela, incluindo a
-    ancestralidade até Coordenador Regional (a tela só mostra até Coordenador Local/Supervisor).
+    `VendorGroupSummaryService`, mas por SUBGRUPO em vez de grupo (com o Grupo pai exposto como
+    coluna extra, não como nível de agregação), e com soma além da média — pedido do usuário pra
+    auditar o dado bruto por trás das médias mostradas na tela, incluindo a ancestralidade até
+    Coordenador Regional (a tela só mostra até Coordenador Local/Supervisor).
 
     Soma e média usam sempre o mesmo divisor fixo (3 ou 12 meses) — não a quantidade de linhas que
     contribuíram pra soma —, igual a `VendorGroupSummaryService`: um subgrupo sem venda num mês
@@ -309,11 +311,17 @@ class VendorSubgroupExportService:
         )
 
         code_to_subgrupo_nome: dict[str, str] = {}
-        for mapping in ExternalProductMapping.objects.select_related("group", "subgroup"):
+        # Nome do Grupo pai por subgrupo/grupo (chave é o nome usado na coluna "subgrupo" do
+        # export, não o código externo) — permite expor a coluna "grupo" sem duplicar o
+        # agrupamento por subgrupo já usado em `totals`/`subgrupos_by_vendedor` abaixo.
+        subgrupo_nome_to_grupo_nome: dict[str, str] = {}
+        for mapping in ExternalProductMapping.objects.select_related("group", "subgroup__group"):
             if mapping.subgroup_id:
                 code_to_subgrupo_nome[mapping.external_code] = mapping.subgroup.nome
+                subgrupo_nome_to_grupo_nome[mapping.subgroup.nome] = mapping.subgroup.group.nome
             elif mapping.group_id:
                 code_to_subgrupo_nome[mapping.external_code] = mapping.group.nome
+                subgrupo_nome_to_grupo_nome[mapping.group.nome] = mapping.group.nome
 
         totals: dict[tuple[int, str], dict[str, float]] = defaultdict(lambda: {"3": 0.0, "12": 0.0})
         rows_qs = DistributionBaseline.objects.filter(
@@ -354,6 +362,7 @@ class VendorSubgroupExportService:
                         regional_nome=regional_nome,
                         local_nome=local_nome,
                         vendedor_nome=vendedor.nome,
+                        grupo_nome=subgrupo_nome_to_grupo_nome.get(subgrupo_nome, ""),
                         subgrupo_nome=subgrupo_nome,
                         sum_3_months_kg=round(data["3"]),
                         sum_12_months_kg=round(data["12"]),
