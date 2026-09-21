@@ -27,6 +27,6 @@ USER app
 EXPOSE 8000
 
 # collectstatic e migrate rodam no entrypoint (runtime), não no build: settings.py exige
-# DJANGO_SECRET_KEY (B-04) e as demais variáveis de config/.env.prod, que só existem em tempo de
+# DJANGO_SECRET_KEY (B-04) e as demais variáveis de config de produção, que só existem em tempo de
 # execução (via `env_file` do compose) — não durante `docker build`.
 ENTRYPOINT ["./docker-entrypoint.prod.sh"]

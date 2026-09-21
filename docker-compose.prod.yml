@@ -2,18 +2,27 @@
 # servido por nginx no lugar do dev server do Vite. Arquivo separado do docker-compose.yml (dev) de
 # propósito — não interfere no fluxo de desenvolvimento com hot-reload documentado no CLAUDE.md.
 #
-# Uso:
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Deploy via Coolify: a plataforma cuida da rede/roteamento (Traefik, HTTPS) e grava as variáveis
+# configuradas no painel em `.env`, no diretório do projeto — é esse arquivo que o `env_file` do
+# backend abaixo espera. O serviço `frontend` não publica porta no host de propósito: no Coolify o
+# roteamento é pela rede interna do Docker, e publicar porta só criaria um caminho HTTP paralelo ao
+# Traefik/HTTPS.
 #
-# A porta publicada do serviço `frontend` (nginx, ${FRONTEND_HOST_PORT:-8084} por padrão — já
-# redirecionada pelo TI no roteador, ver .env.prod.example) é quem serve o SPA e faz proxy de
-# /api e /admin pro backend. Se um dia trocar pra túnel Cloudflare, é nela que ele deve apontar.
+# Uso local (fora do Coolify, para testar a build de produção manualmente):
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# (copie .env.prod.example para `.env` antes de rodar a partir deste diretório — não rode ao mesmo
+# tempo que o `docker-compose.yml` de desenvolvimento, que usa esse mesmo nome de arquivo para
+# outro propósito.)
 #
-# `name` fixo: sem isso, o Compose deriva o nome do projeto do nome da pasta — o mesmo nome que
-# docker-compose.yml (dev) já usa por padrão — e os containers desta stack substituiriam os da
-# stack de desenvolvimento (mesmo nome de container). Incidente real, 2026-09-11: rodar este
-# arquivo sem `name` derrubou e recriou backend/db/frontend do dev com as imagens de produção.
-name: metas_bello_prod
+# Sem `name:` fixo de propósito: era necessário quando dev e produção rodavam na mesma máquina
+# (incidente real, 2026-09-11 — sem `name`, o Compose deriva o nome do projeto do nome da pasta, e
+# subir esta stack sem isso derrubou e recriou backend/db/frontend do dev com as imagens de
+# produção). Nesta VPS não há stack de desenvolvimento, então o Coolify gerencia o nome do projeto
+# sozinho, sem esse risco de colisão.
+# ATENÇÃO ao reintroduzir `name:` (ou trocar seu valor) depois do primeiro deploy nesta VPS: o
+# volume nomeado `postgres_data_prod` abaixo é escopado pelo nome do projeto — mudar isso com dados
+# já em produção faz o Compose subir com um volume novo e vazio, sem apagar o antigo, mas deixando-
+# o órfão e invisível pro app (parece perda de dados).
 
 services:
   db:
@@ -21,7 +30,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-metasbello}
       POSTGRES_USER: ${POSTGRES_USER:-metasbello}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em .env.prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em .env}
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     healthcheck:
@@ -36,7 +45,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     env_file:
-      - .env.prod
+      - .env
     depends_on:
       db:
         condition: service_healthy
@@ -52,10 +61,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
-    ports:
-      # 8084: porta já redirecionada pelo TI pro servidor compartilhado (10.160.3.136) — ver
-      # .env.prod.example.
-      - "${FRONTEND_HOST_PORT:-8084}:8080"
     depends_on:
       backend:
         condition: service_healthy
